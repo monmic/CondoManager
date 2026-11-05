@@ -1,43 +1,48 @@
-# Architettura
+# Architettura — Milestone 02
 ~~~mermaid
 flowchart LR
-  Web[React / TypeScript] --> Api[ASP.NET Core API]
-  Api --> Application
-  Api --> Infrastructure
-  Infrastructure --> Application
-  Application --> Domain
-  Infrastructure --> Domain
-  Infrastructure --> DB[(PostgreSQL)]
+    React[React / TypeScript] -->|/api via Vite| Api[ASP.NET Core net8.0]
+    Api --> Application[Application: contratti e DTO]
+    Api --> Infrastructure[Infrastructure: RegistryService e AppDbContext]
+    Infrastructure --> Application
+    Application --> Domain[Domain: entita e invarianti]
+    Infrastructure --> Domain
+    Infrastructure --> PostgreSQL[(PostgreSQL 16)]
 ~~~
-Domain è indipendente da framework e persistenza; Application definisce
-ITenantContext; Infrastructure contiene AppDbContext, Fluent mapping e migrazioni.
-Api compone DI. Nessun repository generico.
 
-Il frontend è al momento indipendente dai dati: navigazione locale e stati vuoti.
-L'unica route applicativa pubblica è GET /health: indica vitalità del processo,
-non disponibilità di PostgreSQL. L'API può partire senza connessione configurata;
-risolvere AppDbContext richiede ConnectionStrings__CondoManager.
-Swagger e relativo JSON sono registrati solo in Development. Nessuna migrazione
-automatica all'avvio: applicarla esplicitamente con gli strumenti EF.
+Rimangono gli stessi progetti della Milestone 01. Domain non dipende da
+framework o persistenza. Application espone ITenantContext, IRegistryService,
+input/output DTO ed errori applicativi. RegistryService in Infrastructure
+implementa questi use case con transazioni EF e richiama le regole del dominio:
+non e stato aggiunto un repository generico o EF ad Application.
+Api compone DI, converte gli errori in ProblemDetails e mappa esclusivamente DTO.
+Le entita persistite non vengono serializzate direttamente.
 
-Modello: Tenant (studio), Condominium, BuildingOrStaircase, PropertyUnit, Person,
-OwnershipPeriod, MillesimalTable, MillesimalShare, AccountingPeriod.
-UUID, audit UTC, cancellazioni Restrict, codici univoci per studio o condominio.
-FK composite includono TenantId; scala/unità e tabella/quota condividono anche
-CondominiumId. Persona e unità sono entità distinte.
+AppDbContext applica filtri tenant per istanza e controlla tutte le scritture;
+TenantId e concurrency token per UPDATE/DELETE anche di entita scollegate.
+FK composite includono tenant e, dove necessario, condominio.
+Migrazioni manuali: nessuna creazione automatica di schema o dati all'avvio.
 
-DateOnly per validità con estremi inclusivi; fine nulla significa validità aperta.
-Quota proprietà: decimal (0,1], numeric(18,10); millesimi: non negativi,
-numeric(18,6). Futuri importi: decimal, convenzione numeric(18,2).
-Non sono ancora imposte somme a 1000, somma quote proprietarie, esclusioni di
-sovrapposizioni o regole fiscali/contabili: richiedono requisiti concordati.
+Il tenant di sviluppo e un'eccezione esplicita all'attesa dell'autenticazione:
+viene letto dalla configurazione server dopo la composizione dell'host,
+mai dalla richiesta. API dati registrate solo in Development con UUID valido.
+Endpoint filter verifica anche l'esistenza dello studio. In Production/Staging
+rimangono solo health e session (metadati di disponibilita, nessun dato tenant).
+Non e un modello di autorizzazione per un deployment esposto.
 
-SaveChanges applica audit e valida il tenant anche per entità scollegate.
-Filtri di query dipendono dall'istanza del contesto (non da un valore memorizzato
-globalmente). Vedere ADR 0001 per limiti e confini di sicurezza.
+Per mutazioni delle strutture, quote, legami ed esercizi, il servizio prende un
+lock transazionale sulla riga del condominio, filtrato anche per TenantId.
+Questo serializza modifiche concorrenti dello stesso condominio. PostgreSQL
+impone inoltre esclusione degli intervalli per esercizi e legami dello stesso
+soggetto/unita/ruolo, e trigger di immutabilita per esercizi chiusi e tabelle attive.
 
-Test unitari sulle invarianti; integrazione API in memoria e isolamento EF;
-verifica PostgreSQL reale tramite scripts/Verify-Postgres.ps1, con database
-temporaneo e credenziali generate in memoria. Nessun dato reale.
-TenantId è anche concurrency token: UPDATE/DELETE includono il tenant nella
-clausola WHERE, impedendo di colpire ID appartenenti a un altro studio.
+Il frontend usa API reali, stati caricamento/errore/vuoto, form riutilizzabili,
+conferme per attivazione/chiusura e una navigazione adattabile al mobile.
+Fetch annulla le richieste obsolete e non mantiene i dati di una selezione diversa.
+Nessun dato mock permanente. Decimal trasferiti come stringhe JSON per conservarne
+le cifre; totali e validazione sono calcolati sul server.
+
+Vedere [modello dati](milestone-02-data-model.md),
+[API](api.md), [ADR tenant](../decisions/0002-development-tenant.md).
+Il resoconto della Milestone 01 resta una fotografia storica, non descrive
+le API operative introdotte in questa milestone.

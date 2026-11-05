@@ -36,14 +36,14 @@ public class PostgresTests
         db.Add(unit);
         await db.SaveChangesAsync();
         db.Add(new OwnershipPeriod(a, unit.Id, person.Id, new DateOnly(2026, 1, 1), null, 0.3333333333m));
-        var table = new MillesimalTable(a, condominium.Id, "T");
+        var table = new AllocationTable(a, condominium.Id, "T");
         db.Add(table);
         await db.SaveChangesAsync();
-        db.Add(new MillesimalShare(a, condominium.Id, table.Id, unit.Id, 42.123456m, new DateOnly(2026, 1, 1), null));
+        db.Add(new AllocationTableEntry(a, condominium.Id, table.Id, unit.Id, 42.123456m, new DateOnly(2026, 1, 1), null));
         await db.SaveChangesAsync();
         db.ChangeTracker.Clear();
         Assert.Equal(0.3333333333m, (await db.OwnershipPeriods.SingleAsync()).Fraction);
-        Assert.Equal(42.123456m, (await db.MillesimalShares.SingleAsync()).Value);
+        Assert.Equal(42.123456m, (await db.AllocationTableEntries.SingleAsync()).Value);
         Assert.Single(await db.Tenants.ToListAsync());
         var foreignPersonId = Guid.NewGuid();
         await db.Database.ExecuteSqlInterpolatedAsync($"""
@@ -57,10 +57,11 @@ public class PostgresTests
         await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => db.SaveChangesAsync());
         db.ChangeTracker.Clear();
         // Even bypassing EF filters cannot create a cross-tenant relationship.
-        await Assert.ThrowsAsync<Npgsql.PostgresException>(() => db.Database.ExecuteSqlInterpolatedAsync($"""
+        var foreignKeyError = await Assert.ThrowsAsync<Npgsql.PostgresException>(() => db.Database.ExecuteSqlInterpolatedAsync($"""
             INSERT INTO "Buildings" ("Id","TenantId","CondominiumId","Code","CreatedAt","UpdatedAt")
             VALUES ({Guid.NewGuid()},{b},{condominium.Id},{"INVALID"},now(),now())
             """));
+        Assert.Equal(Npgsql.PostgresErrorCodes.ForeignKeyViolation, foreignKeyError.SqlState);
         await transaction.RollbackAsync();
     }
 }

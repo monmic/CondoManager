@@ -1,8 +1,8 @@
-param([int]$Port = 55439)
+param([int]$Port = 55439, [switch]$Browser)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot
-$project = 'cm-m01-check-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
-$names = @('POSTGRES_USER','POSTGRES_PASSWORD','POSTGRES_PORT','ConnectionStrings__CondoManager','CONDOMANAGER_TEST_POSTGRES')
+$project = 'cm-m02-check-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
+$names = @('POSTGRES_USER','POSTGRES_PASSWORD','POSTGRES_PORT','ConnectionStrings__CondoManager','CONDOMANAGER_TEST_POSTGRES','ASPNETCORE_ENVIRONMENT','DevelopmentTenant__Id','CONDOMANAGER_E2E')
 $previous = @{}
 foreach ($name in $names) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 Push-Location $root
@@ -25,6 +25,23 @@ try {
     if ($LASTEXITCODE) { throw 'Build fallita.' }
     dotnet test
     if ($LASTEXITCODE) { throw 'Test falliti.' }
+    if ($Browser) {
+        $env:ASPNETCORE_ENVIRONMENT = 'Development'
+        $env:DevelopmentTenant__Id = [Guid]::NewGuid().ToString()
+        $env:CONDOMANAGER_E2E = '1'
+        $tenant = $env:DevelopmentTenant__Id
+        $sql = @"
+INSERT INTO "Tenants" ("Id","Code","Name","CreatedAt","UpdatedAt")
+VALUES ('$tenant','E2E-$tenant','Studio sintetico browser',now(),now());
+"@
+        $sql | docker compose -p $project exec -T postgres psql -U $env:POSTGRES_USER -d condomanager -v ON_ERROR_STOP=1
+        if ($LASTEXITCODE) { throw 'Preparazione tenant browser fallita.' }
+        Push-Location src/frontend/web
+        try {
+            npm run test:e2e
+            if ($LASTEXITCODE) { throw 'Test browser falliti.' }
+        } finally { Pop-Location }
+    }
 }
 finally {
     # Only resources created by this unique verification project are removed.

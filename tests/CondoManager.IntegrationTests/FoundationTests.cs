@@ -19,7 +19,7 @@ public class FoundationTests
         var response = await client.GetAsync("/health");
         response.EnsureSuccessStatusCode();
         Assert.Equal("{\"status\":\"healthy\"}", await response.Content.ReadAsStringAsync());
-        foreach (var path in new[] { "/weatherforecast", "/condominiums", "/people", "/swagger/v1/swagger.json" })
+        foreach (var path in new[] { "/weatherforecast", "/api/condominiums", "/api/people", "/swagger/v1/swagger.json" })
             Assert.Equal(System.Net.HttpStatusCode.NotFound, (await client.GetAsync(path)).StatusCode);
     }
     [Fact] public async Task FiltersAreScopedToEachContextAndFailClosed()
@@ -56,7 +56,7 @@ public class FoundationTests
             foreach (var fk in type.GetForeignKeys().Where(f => f.PrincipalEntityType.ClrType != typeof(Tenant)))
                 Assert.Contains(fk.Properties, p => p.Name == "TenantId");
         }
-        Assert.Equal(6, model.FindEntityType(typeof(MillesimalShare))!.FindProperty("Value")!.GetScale());
+        Assert.Equal(6, model.FindEntityType(typeof(AllocationTableEntry))!.FindProperty("Value")!.GetScale());
         Assert.Equal(10, model.FindEntityType(typeof(OwnershipPeriod))!.FindProperty("Fraction")!.GetScale());
         Assert.Contains("CREATE TABLE", db.Database.GenerateCreateScript());
     }

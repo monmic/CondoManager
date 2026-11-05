@@ -10,12 +10,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
     private Guid? CurrentTenantId => tenantContext.TenantId;
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Condominium> Condominiums => Set<Condominium>();
-    public DbSet<BuildingOrStaircase> Buildings => Set<BuildingOrStaircase>();
+    public DbSet<Building> Buildings => Set<Building>();
+    public DbSet<Staircase> Staircases => Set<Staircase>();
     public DbSet<PropertyUnit> PropertyUnits => Set<PropertyUnit>();
     public DbSet<Person> People => Set<Person>();
     public DbSet<OwnershipPeriod> OwnershipPeriods => Set<OwnershipPeriod>();
-    public DbSet<MillesimalTable> MillesimalTables => Set<MillesimalTable>();
-    public DbSet<MillesimalShare> MillesimalShares => Set<MillesimalShare>();
+    public DbSet<AllocationTable> AllocationTables => Set<AllocationTable>();
+    public DbSet<AllocationTableEntry> AllocationTableEntries => Set<AllocationTableEntry>();
     public DbSet<AccountingPeriod> AccountingPeriods => Set<AccountingPeriod>();
 
     private void ConfigureTenant<T>(EntityTypeBuilder<T> b) where T : TenantEntity
@@ -33,44 +34,50 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
             b.HasQueryFilter(x => CurrentTenantId != null && x.Id == CurrentTenantId);
         });
         ConfigureTenant(m.Entity<Condominium>());
-        ConfigureTenant(m.Entity<BuildingOrStaircase>());
+        ConfigureTenant(m.Entity<Building>());
         ConfigureTenant(m.Entity<PropertyUnit>());
+        ConfigureTenant(m.Entity<Staircase>());
         ConfigureTenant(m.Entity<Person>());
         ConfigureTenant(m.Entity<OwnershipPeriod>());
-        ConfigureTenant(m.Entity<MillesimalTable>());
-        ConfigureTenant(m.Entity<MillesimalShare>());
+        ConfigureTenant(m.Entity<AllocationTable>());
+        ConfigureTenant(m.Entity<AllocationTableEntry>());
         ConfigureTenant(m.Entity<AccountingPeriod>());
         m.Entity<Condominium>().HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
         m.Entity<Person>().HasIndex(x => new { x.TenantId, x.Code }).IsUnique();
-        m.Entity<BuildingOrStaircase>(b => {
+        m.Entity<Building>(b => {
             b.HasAlternateKey(x => new { x.TenantId, x.CondominiumId, x.Id });
             b.HasIndex(x => new { x.TenantId, x.CondominiumId, x.Code }).IsUnique();
             b.HasOne<Condominium>().WithMany().HasForeignKey(x => new { x.TenantId, x.CondominiumId }).HasPrincipalKey(x => new { x.TenantId, x.Id });
         });
         m.Entity<PropertyUnit>(b => {
+            b.Property(x => x.BuildingId).HasColumnName("BuildingOrStaircaseId");
+            b.HasOne<Staircase>().WithMany().HasForeignKey(x => new { x.TenantId, x.CondominiumId, x.StaircaseId }).HasPrincipalKey(x => new { x.TenantId, x.CondominiumId, x.Id });
             b.HasAlternateKey(x => new { x.TenantId, x.CondominiumId, x.Id });
             b.HasIndex(x => new { x.TenantId, x.CondominiumId, x.Code }).IsUnique();
             b.HasOne<Condominium>().WithMany().HasForeignKey(x => new { x.TenantId, x.CondominiumId }).HasPrincipalKey(x => new { x.TenantId, x.Id });
-            b.HasOne<BuildingOrStaircase>().WithMany().HasForeignKey(x => new { x.TenantId, x.CondominiumId, x.BuildingOrStaircaseId }).HasPrincipalKey(x => new { x.TenantId, x.CondominiumId, x.Id });
+            b.HasOne<Building>().WithMany().HasForeignKey(x => new { x.TenantId, x.CondominiumId, x.BuildingId }).HasPrincipalKey(x => new { x.TenantId, x.CondominiumId, x.Id });
         });
         m.Entity<OwnershipPeriod>(b => {
-            b.HasIndex(x => new { x.TenantId, x.PropertyUnitId, x.PersonId, x.ValidFrom }).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.PropertyUnitId, x.PersonId, x.Role, x.ValidFrom }).IsUnique();
             b.HasOne<PropertyUnit>().WithMany().HasForeignKey(x => new { x.TenantId, x.PropertyUnitId }).HasPrincipalKey(x => new { x.TenantId, x.Id });
             b.HasOne<Person>().WithMany().HasForeignKey(x => new { x.TenantId, x.PersonId }).HasPrincipalKey(x => new { x.TenantId, x.Id });
             b.Property(x => x.Fraction).HasPrecision(18, 10);
             b.ToTable("OwnershipPeriods", t => {
                 t.HasCheckConstraint("CK_Ownership_Dates", "\"ValidTo\" IS NULL OR \"ValidTo\" >= \"ValidFrom\"");
-                t.HasCheckConstraint("CK_Ownership_Fraction", "\"Fraction\" > 0 AND \"Fraction\" <= 1");
+                t.HasCheckConstraint("CK_Ownership_Fraction", "(\"Role\" IN (0,1) AND \"Fraction\" IS NOT NULL AND \"Fraction\" > 0 AND \"Fraction\" <= 1) OR (\"Role\" IN (2,3,4) AND \"Fraction\" IS NULL)");
             });
         });
-        m.Entity<MillesimalTable>(b => {
+        m.Entity<AllocationTable>(b => {
+            b.ToTable("MillesimalTables", t => t.HasCheckConstraint("CK_Table_Denominator", "\"Denominator\" > 0"));
+            b.Property(x => x.Denominator).HasPrecision(18, 6);
             b.HasAlternateKey(x => new { x.TenantId, x.CondominiumId, x.Id });
             b.HasIndex(x => new { x.TenantId, x.CondominiumId, x.Code }).IsUnique();
             b.HasOne<Condominium>().WithMany().HasForeignKey(x => new { x.TenantId, x.CondominiumId }).HasPrincipalKey(x => new { x.TenantId, x.Id });
         });
-        m.Entity<MillesimalShare>(b => {
-            b.HasIndex(x => new { x.TenantId, x.MillesimalTableId, x.PropertyUnitId, x.ValidFrom }).IsUnique();
-            b.HasOne<MillesimalTable>().WithMany().HasForeignKey(x => new { x.TenantId, x.CondominiumId, x.MillesimalTableId }).HasPrincipalKey(x => new { x.TenantId, x.CondominiumId, x.Id });
+        m.Entity<AllocationTableEntry>(b => {
+            b.Property(x => x.AllocationTableId).HasColumnName("MillesimalTableId");
+            b.HasIndex(x => new { x.TenantId, x.AllocationTableId, x.PropertyUnitId, x.ValidFrom }).IsUnique();
+            b.HasOne<AllocationTable>().WithMany().HasForeignKey(x => new { x.TenantId, x.CondominiumId, x.AllocationTableId }).HasPrincipalKey(x => new { x.TenantId, x.CondominiumId, x.Id });
             b.HasOne<PropertyUnit>().WithMany().HasForeignKey(x => new { x.TenantId, x.CondominiumId, x.PropertyUnitId }).HasPrincipalKey(x => new { x.TenantId, x.CondominiumId, x.Id });
             b.Property(x => x.Value).HasPrecision(18, 6);
             b.ToTable("MillesimalShares", t => {
@@ -83,9 +90,21 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
             b.HasOne<Condominium>().WithMany().HasForeignKey(x => new { x.TenantId, x.CondominiumId }).HasPrincipalKey(x => new { x.TenantId, x.Id });
             b.ToTable("AccountingPeriods", t => t.HasCheckConstraint("CK_Accounting_Dates", "\"EndsOn\" >= \"StartsOn\""));
         });
+        m.Entity<Staircase>(b => {
+            b.HasAlternateKey(x => new { x.TenantId, x.CondominiumId, x.Id });
+            b.HasIndex(x => new { x.TenantId, x.CondominiumId, x.Code }).IsUnique();
+            b.HasOne<Condominium>().WithMany().HasForeignKey(x => new { x.TenantId, x.CondominiumId }).HasPrincipalKey(x => new { x.TenantId, x.Id });
+            b.HasOne<Building>().WithMany().HasForeignKey(x => new { x.TenantId, x.CondominiumId, x.BuildingId }).HasPrincipalKey(x => new { x.TenantId, x.CondominiumId, x.Id });
+        });
+        m.Entity<Condominium>().HasIndex(x => new { x.TenantId, x.TaxCode }).IsUnique();
+        m.Entity<Person>().HasIndex(x => new { x.TenantId, x.TaxCode }).IsUnique();
         foreach (var entity in m.Model.GetEntityTypes())
         {
             foreach (var property in entity.GetProperties().Where(p => p.ClrType == typeof(string))) property.SetMaxLength(160);
+            foreach (var property in entity.GetProperties().Where(p => p.Name == "Notes")) property.SetMaxLength(4000);
+            foreach (var property in entity.GetProperties().Where(p => p.Name == "CadastralData")) property.SetMaxLength(2000);
+            foreach (var property in entity.GetProperties().Where(p => p.Name == "MailingAddress")) property.SetMaxLength(500);
+            foreach (var property in entity.GetProperties().Where(p => p.Name == "Email")) property.SetMaxLength(254);
             // Future monetary properties default to PostgreSQL numeric(18,2).
             foreach (var property in entity.GetProperties().Where(p => p.ClrType == typeof(decimal) && p.GetPrecision() == null))
             { property.SetPrecision(18); property.SetScale(2); }
@@ -100,6 +119,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
         {
             if (CurrentTenantId is null || CurrentTenantId == Guid.Empty)
                 throw new InvalidOperationException("Contesto tenant autenticato obbligatorio.");
+            if (entry.Entity is AccountingPeriod && entry.State != EntityState.Added &&
+                (AccountingPeriodStatus)entry.Property(nameof(AccountingPeriod.Status)).OriginalValue! == AccountingPeriodStatus.Closed)
+                throw new InvalidOperationException("Esercizio chiuso immutabile.");
             if (entry.Entity is Tenant) throw new InvalidOperationException("Provisioning tenant non disponibile.");
             if (entry.Entity is TenantEntity row)
             {
