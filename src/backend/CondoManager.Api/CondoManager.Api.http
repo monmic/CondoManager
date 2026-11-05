@@ -1,0 +1,3 @@
+@CondoManager_Api_HostAddress = http://localhost:5080
+GET {{CondoManager_Api_HostAddress}}/health
+Accept: application/json

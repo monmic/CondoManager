@@ -1,0 +1,13 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/src/backend/">
+    <Project Path="src/backend/CondoManager.Api/CondoManager.Api.csproj" />
+    <Project Path="src/backend/CondoManager.Application/CondoManager.Application.csproj" />
+    <Project Path="src/backend/CondoManager.Domain/CondoManager.Domain.csproj" />
+    <Project Path="src/backend/CondoManager.Infrastructure/CondoManager.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/CondoManager.IntegrationTests/CondoManager.IntegrationTests.csproj" />
+    <Project Path="tests/CondoManager.UnitTests/CondoManager.UnitTests.csproj" />
+  </Folder>
+</Solution>
