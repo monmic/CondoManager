@@ -13,7 +13,7 @@ public sealed partial class AccountingService(AppDbContext db, ICurrentTenant cu
     private async Task<T> Write<T>(Guid? condo, Func<Task<T>> action, CancellationToken ct)
     {
         current.RequireWrite();
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await using var tx = db.Database.CurrentTransaction==null?await db.Database.BeginTransactionAsync(ct):null;
         if (condo.HasValue)
         {
             await Condo(condo.Value,ct);
@@ -22,7 +22,7 @@ public sealed partial class AccountingService(AppDbContext db, ICurrentTenant cu
         }
         else // Serialize tenant-wide supplier edits with accounting operations' FK locks.
             await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Tenants\" WHERE \"Id\"={TenantId} FOR UPDATE",ct);
-        var result = await action(); await db.SaveChangesAsync(ct); await tx.CommitAsync(ct); return result;
+        var result = await action(); await db.SaveChangesAsync(ct); if(tx!=null)await tx.CommitAsync(ct); return result;
     }
     private void Audit(string name, Guid subject) => db.SecurityAudits.Add(new SecurityAudit { Id=Guid.NewGuid(),TenantId=TenantId,ActorUserId=current.UserId,SubjectId=subject,Event=name,Timestamp=DateTimeOffset.UtcNow });
     private async Task<AccountingPeriod> Period(Guid condo, Guid id, DateOnly date, CancellationToken ct)

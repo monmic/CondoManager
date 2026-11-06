@@ -215,3 +215,66 @@ Viewer consulta e simula; Collaborator prepara e propone; StudioAdmin approva,
 gestisce aperture, conferma/contabilizza/storna e chiude. Le letture di dettaglio,
 confronto e fonti sono incluse nei DTO degli snapshot. RequestId UUID e fingerprint
 proteggono retry e fonti modificate; gli errori di stato restituiscono 409.
+
+## Assemblee M07.1
+
+Base: `/api/meetings/condominiums/{condo}`. Cookie, TenantMember, CSRF sulle
+mutazioni e controllo X-Expected-Tenant. Nessun TenantId in input.
+
+| Metodo | Suffisso | Uso |
+|---|---|---|
+| GET / POST | `/` | Elenco filtrabile `?period=UUID` / creazione |
+| GET / PUT | `/{id}` | Dettaglio / modifica prima del consolidamento |
+| POST | `/{id}/status` | Programmazione, consolidamento, annullamento |
+| POST | `/{id}/sessions/{session}` | Avvio, termine o non tenuta di una sessione |
+| POST | `/{id}/agenda` | Inserimento/modifica punto |
+| POST | `/{id}/agenda/{item}/delete`, `/{id}/agenda/reorder` | Rimozione/ordine |
+| POST | `/{id}/participants/preview` | Ricostruzione senza persistenza |
+| POST | `/{id}/snapshots` | Consolidamento/riconciliazione esplicita |
+| POST | `/{id}/notices` | Preparazione destinatario da snapshot |
+| POST | `/{id}/notices/{notice}/status` | Evento manuale dichiarato |
+| POST | `/{id}/proxies` | Preparazione delega con unità |
+| POST | `/{id}/proxies/{proxy}/status` | Presentazione/verifica/rifiuto/revoca |
+| POST | `/{id}/attendances` | Ingresso diretto/remoto/per delega |
+| POST | `/{id}/attendances/{attendance}/exit` | Uscita tracciata |
+| POST | `/{id}/absences` | Assenza dichiarata |
+| GET | `/{id}/history` | Revisioni complete, solo ruoli operativi |
+
+Tutte le mutazioni richiedono ExpectedVersion: 0 per creazione, versione corrente
+per modifiche; mismatch 409. Ogni risposta di mutazione restituisce l'aggregato
+aggiornato. Il dettaglio include sessioni, agenda, snapshot, convocazioni, eventi,
+deleghe, presenze e assenze; non espone entità EF. Viewer riceve i recapiti oscurati
+e non riceve convocazioni o note riservate. Anteprima partecipanti e revisioni
+complete richiedono Collaborator/StudioAdmin. La verifica delle deleghe richiede
+StudioAdmin, le altre mutazioni almeno Collaborator. Le liste e i riferimenti sono
+sempre limitati al tenant autenticato e al condominio della route.
+
+## Deliberazioni M07.2
+
+Stessa base tenant M07.1: `/api/meetings/condominiums/{condo}`.
+
+| Metodo | Suffisso | Operazione |
+|---|---|---|
+| GET / POST | `/voting-rules` | Criteri e tutte le versioni / nuova versione Draft |
+| GET | `/voting-rules/templates` | Modelli numerici senza inserimento automatico |
+| POST | `/voting-rules/{id}/activate`, `/retire` | Revisione StudioAdmin |
+| GET | `/{meeting}/decisions` | Quorum, voti, revisioni, delibere, applicazioni e conclusione |
+| POST | `/{meeting}/quorum` | Verifica costitutiva storicizzata per sessione/istante |
+| POST | `/{meeting}/votes` | Apertura e congelamento platea |
+| POST | `/{meeting}/votes/{vote}/ballots` | Nuovo voto o modifica con BallotId/BallotRevision |
+| POST | `/{meeting}/votes/{vote}/close`, `/cancel` | Chiusura/calcolo o annullamento |
+| POST | `/{meeting}/resolutions` | Consolidamento o rettifica testuale con PreviousResolutionId |
+| POST | `/{meeting}/resolutions/{resolution}/apply` | Applicazione M06 / HistoricalOnly esplicito |
+| POST | `/{meeting}/agenda-dispositions` | Discussione senza voto o rinvio motivato |
+| GET | `/{meeting}/completion-review?session=UUID` | Checklist e fingerprint |
+| POST | `/{meeting}/complete` | Conclusione StudioAdmin |
+
+Mutazioni meeting con ExpectedVersion. Apertura, delibera, applicazione e conclusione
+richiedono RequestId; stesso UUID con parametri diversi dà 409. Gli errori non
+trasformano uno stato indeterminato in approvazione. Il soggetto esprimente di un
+ballot è risolto dal server, senza ID autorizzativi ricevuti dal client.
+
+Viewer consulta; Collaborator registra quorum e voti; StudioAdmin gestisce criteri,
+consolidamenti, rettifiche, M06 e conclusione. I controlli valgono anche sui retry.
+Cookie, membership, tenant, CSRF e X-Expected-Tenant rimangono obbligatori. I Viewer
+ricevono uno snapshot di conclusione sintetico senza i recapiti M07.1 riservati.

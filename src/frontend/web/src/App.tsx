@@ -1,3 +1,4 @@
+﻿import { DocumentsPanel } from './DocumentsPanel'
 import { useEffect, useState } from 'react'
 import { api, useResource } from './api'
 import type { Condominium, CurrentUser } from './api'
@@ -9,6 +10,7 @@ import type { SecurityLink } from './AuthPages'
 import { DevelopmentMessages, PlatformUsersPage, StudioUsersPage } from './StudioUsersPage'
 import { WritePermission } from './permissions'
 import { errorMessage } from './form'
+import { MeetingsPage } from './MeetingsPage'
 import { FinalStatementsPage } from './FinalStatementsPage'
 import { ResidentFinancePage } from './ResidentFinancePage'
 import { BudgetsPage } from './BudgetsPage'
@@ -57,7 +59,7 @@ function Workspace({ me, link, onClearLink, notice, refreshSession }: { me: Curr
   const [busy, setBusy] = useState(false)
   const condos = useResource<Condominium[]>(me.activeTenantId ? '/condominiums' : null)
   const current = condos.data?.find(x => x.id === selected)
-  const sections = ['Dashboard', ...(me.activeTenantId ? ['Condomini', 'Anagrafiche', 'Preventivi', 'Rate e incassi', 'Consuntivi', 'Ripartizioni', 'Tabelle millesimali', 'Esercizi contabili', 'Contabilità'] : []),
+  const sections = ['Dashboard', ...(me.activeTenantId ? ['Condomini', 'Anagrafiche', 'Preventivi', 'Rate e incassi', 'Consuntivi', 'Assemblee', 'Documenti', 'Ripartizioni', 'Tabelle millesimali', 'Esercizi contabili', 'Contabilità'] : []),
     ...(me.role === 'StudioAdmin' ? ['Utenti studio'] : []), ...(me.isPlatformAdmin ? ['Amministrazione'] : []), 'Account']
   return <WritePermission.Provider value={me.canWrite}><div className="shell"><aside>
     <a className="brand" href="#dashboard" onClick={() => setActive('Dashboard')}>CM <span>CondoManager</span></a><p className="nav-label">IL TUO SPAZIO</p>
@@ -85,10 +87,10 @@ function Workspace({ me, link, onClearLink, notice, refreshSession }: { me: Curr
           {!condos.data.length && <Empty>Lo studio e vuoto.</Empty>}</>}
         {active === 'Condomini' && <CondominiumsPage rows={condos.data} selected={selected} onSelect={setSelected} refresh={condos.reload} />}
         {active === 'Anagrafiche' && <PeoplePage />}
-        {['Preventivi', 'Rate e incassi', 'Consuntivi', 'Ripartizioni', 'Tabelle millesimali', 'Esercizi contabili', 'Contabilità'].includes(active) && <>
+        {['Preventivi', 'Rate e incassi', 'Consuntivi', 'Assemblee', 'Documenti', 'Ripartizioni', 'Tabelle millesimali', 'Esercizi contabili', 'Contabilità'].includes(active) && <>
           <label className="condo-selector">Condominio<select value={selected} onChange={e => setSelected(e.target.value)}><option value="">Seleziona un condominio…</option>{condos.data.map(c => <option key={c.id} value={c.id}>{c.code} · {c.name}{c.isActive ? '' : ' (inattivo)'}</option>)}</select></label>
           {!current ? <Empty>Seleziona un condominio per continuare.</Empty> : !current.isActive ? <Empty>Riattiva il condominio dalla sua anagrafica per gestire i dati collegati.</Empty> :
-            active === 'Contabilità' ? <AccountingCorePage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Consuntivi' ? <FinalStatementsPage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Rate e incassi' ? <ResidentFinancePage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Preventivi' ? <BudgetsPage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Ripartizioni' ? <AllocationsPage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Tabelle millesimali' ? <AllocationPage key={current.id} condominiumId={current.id} /> : <PeriodsPage key={current.id} condominiumId={current.id} />}
+            active === 'Documenti' ? <DocumentsPanel key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Contabilità' ? <AccountingCorePage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Assemblee' ? <MeetingsPage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Consuntivi' ? <FinalStatementsPage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Rate e incassi' ? <ResidentFinancePage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Preventivi' ? <BudgetsPage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Ripartizioni' ? <AllocationsPage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Tabelle millesimali' ? <AllocationPage key={current.id} condominiumId={current.id} /> : <PeriodsPage key={current.id} condominiumId={current.id} />}
         </>}
       </>}</Status></>}
   </section></main></div></WritePermission.Provider>

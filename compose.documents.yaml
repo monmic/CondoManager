@@ -1,0 +1,27 @@
+# Explicit override; never mounts the document volume in a public web directory.
+services:
+  api:
+    build: .
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__CondoManager: Host=postgres;Database=condomanager;Username=${POSTGRES_USER:?Set POSTGRES_USER};Password=${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      ASPNETCORE_Kestrel__Certificates__Default__Path: /certificates/https.pfx
+      ASPNETCORE_Kestrel__Certificates__Default__Password: ${HTTPS_CERT_PASSWORD:?Set HTTPS_CERT_PASSWORD}
+      DataProtection__CertificatePath: /certificates/https.pfx
+      DataProtection__CertificatePassword: ${HTTPS_CERT_PASSWORD:?Set HTTPS_CERT_PASSWORD}
+      Documents__MaxUploadBytes: ${DOCUMENT_MAX_BYTES:-8388608}
+    ports:
+      - "127.0.0.1:7262:8443"
+    volumes:
+      - document_files:/var/condomanager/documents
+      - protection_keys:/var/condomanager/keys
+      - type: bind
+        source: ${HTTPS_CERT_DIRECTORY:?Set HTTPS_CERT_DIRECTORY containing https.pfx}
+        target: /certificates
+        read_only: true
+volumes:
+  document_files:
+  protection_keys:

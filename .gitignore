@@ -76,3 +76,8 @@ __pycache__/
 
 # Local verification artifacts
 .artifacts/
+
+# Private document files, local volumes and certificates
+**/private-documents/
+.local/
+.certs/

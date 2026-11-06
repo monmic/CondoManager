@@ -1,0 +1,8 @@
+CondoManager uses the unmodified NuGet package PdfPig 0.1.16.
+Project: https://github.com/UglyToad/PdfPig
+Package: https://www.nuget.org/packages/PdfPig/0.1.16
+Package license expression: Apache-2.0 (verified in pdfpig.nuspec).
+The Apache License 2.0 text is distributed alongside this file as Apache-2.0.txt.
+
+This file is a CondoManager dependency attribution, not an upstream NOTICE file.
+Noto Sans Regular is separately licensed under SIL OFL 1.1; see Fonts/OFL.txt.

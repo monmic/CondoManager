@@ -1,4 +1,4 @@
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -32,6 +32,7 @@ public sealed class SecurityTestHost(Guid? defaultTenant = null, string environm
         builder.UseEnvironment(environment);
         builder.ConfigureAppConfiguration((_, config) => config.AddInMemoryCollection(new Dictionary<string, string?> {
             ["ConnectionStrings:CondoManager"] = Environment.GetEnvironmentVariable("CONDOMANAGER_TEST_POSTGRES"),
+            ["Documents:RootPath"] = Path.Combine(Directory.GetCurrentDirectory(), ".artifacts", "document-integration", defaultTenant?.ToString("N") ?? Guid.NewGuid().ToString("N")),
             ["DevelopmentTenant:Id"] = defaultTenant?.ToString()
         }));
         builder.ConfigureServices(services => {

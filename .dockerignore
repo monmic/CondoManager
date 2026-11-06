@@ -1,0 +1,12 @@
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/test-results
+.git
+.idea
+.artifacts
+.local
+.certs
+**/private-documents
+**/.env

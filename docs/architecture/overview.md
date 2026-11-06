@@ -74,3 +74,22 @@ ResidentOpening distingue importazione contabile da riporto documentale senza
 seconda scrittura. AdministrativeClosure congela checklist, giornale e posizioni.
 I controlli applicativi sono affiancati da vincoli PostgreSQL differiti e lock
 per condominio. [Modello completo](milestone-063-final-statements.md).
+
+## Assemblee M07.1
+
+IMeetingService coordina il nuovo aggregato operativo, riutilizzando Person,
+PropertyUnit, OwnershipPeriod e AllocationTable. MeetingSnapshot congela le fonti;
+MeetingRevision congela a ogni mutazione lo stato completo, incluse deleghe ed eventi.
+FK composite, versioni, lock transazionali e indici filtrati proteggono sessioni e
+rappresentanze. Nessuna modifica ai movimenti o agli stati dei bilanci M06.
+[Modello M07.1](milestone-071-meetings.md), [ADR 0009](../decisions/0009-meeting-representation.md).
+
+## Ciclo deliberativo M07.2
+
+IVotingEngine in Application valuta soglie indipendenti e razionali. VotingRule
+versiona la configurazione; MeetingQuorumCheck e MeetingVote conservano platee,
+istanti e fonti. MeetingBallotRevision e MeetingResolution rendono tracciabili
+modifiche e consolidamenti. ResolutionApplication richiama i servizi M06 nella
+stessa transazione; MeetingCompletion congela la conclusione controllata.
+[Modello](milestone-072-voting.md), [fonti e limiti](milestone-072-legal-sources.md),
+[ADR 0010](../decisions/0010-voting-snapshots.md).

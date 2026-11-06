@@ -1,4 +1,4 @@
-using System.Threading.RateLimiting;
+﻿using System.Threading.RateLimiting;
 using System.Text.Json.Serialization;
 using CondoManager.Api;
 using CondoManager.Application;
@@ -13,8 +13,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using System.Security.Cryptography.X509Certificates;
 
-var builder = WebApplication.CreateBuilder(args.Where(x => x != "--bootstrap").ToArray());
-builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = 1024 * 1024);
+var builder = WebApplication.CreateBuilder(args.Where(x => x != "--bootstrap" && x != "--document-storage-recover").ToArray());
+builder.WebHost.ConfigureKestrel(options => options.Limits.MaxRequestBodySize = builder.Configuration.GetValue<int?>("Documents:MaxUploadBytes") is int uploadMax ? uploadMax + 65536 : 8454144);
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<CurrentTenant>();
@@ -29,6 +29,14 @@ builder.Services.AddSingleton<IAllocationEngine, AllocationEngine>();
 builder.Services.AddScoped<AllocationService>();
 builder.Services.AddScoped<IAllocationService>(s=>s.GetRequiredService<AllocationService>());
 builder.Services.AddScoped<IBudgetService, BudgetService>();
+builder.Services.AddScoped<MeetingService>();
+builder.Services.AddScoped<IMeetingService>(s=>s.GetRequiredService<MeetingService>());
+builder.Services.AddScoped<IMeetingDecisionService>(s=>s.GetRequiredService<MeetingService>());
+builder.Services.AddSingleton<IVotingEngine,VotingEngine>();
+builder.Services.AddSingleton<IDocumentStorage,LocalDocumentStorage>();
+builder.Services.AddSingleton<IDocumentPdfGenerator,DocumentPdfGenerator>();
+builder.Services.AddSingleton<IDocumentScanner,UnscannedDocumentScanner>();
+builder.Services.AddScoped<IDocumentService,DocumentService>();
 builder.Services.AddScoped<IdentityService>();
 builder.Services.AddScoped<IdentityBootstrap>();
 builder.Services.AddDbContext<AppDbContext>((services, options) =>
@@ -100,6 +108,7 @@ builder.Services.ConfigureHttpJsonOptions(options => {
 builder.Services.AddProblemDetails();
 if (builder.Environment.IsDevelopment()) { builder.Services.AddEndpointsApiExplorer(); builder.Services.AddSwaggerGen(); }
 var app = builder.Build();
+if (args.Contains("--document-storage-recover")) { await using var scope = app.Services.CreateAsyncScope(); var result = await DocumentStorageRecovery.Run(scope.ServiceProvider.GetRequiredService<AppDbContext>(), scope.ServiceProvider.GetRequiredService<IDocumentStorage>(), default); System.Console.WriteLine($"Storage recovery: acknowledged={result.Acknowledged}, uncommitted removed={result.Removed}"); return; }
 if (args.Contains("--bootstrap"))
 {
     await using var scope = app.Services.CreateAsyncScope();
@@ -138,7 +147,7 @@ app.UseAuthentication();
 app.Use(RequestSecurity.ResolveTenant);
 app.UseAuthorization();
 app.Use(async (context, next) => {
-    var business = context.Request.Path.StartsWithSegments("/api/final-statements") || context.Request.Path.StartsWithSegments("/api/resident-finance") || context.Request.Path.StartsWithSegments("/api/budgets") || context.Request.Path.StartsWithSegments("/api/allocations") || context.Request.Path.StartsWithSegments("/api/accounting") || context.Request.Path.StartsWithSegments("/api/condominiums") || context.Request.Path.StartsWithSegments("/api/people") || context.Request.Path.StartsWithSegments("/api/studio");
+    var business = context.Request.Path.StartsWithSegments("/api/documents") || context.Request.Path.StartsWithSegments("/api/meetings") || context.Request.Path.StartsWithSegments("/api/final-statements") || context.Request.Path.StartsWithSegments("/api/resident-finance") || context.Request.Path.StartsWithSegments("/api/budgets") || context.Request.Path.StartsWithSegments("/api/allocations") || context.Request.Path.StartsWithSegments("/api/accounting") || context.Request.Path.StartsWithSegments("/api/condominiums") || context.Request.Path.StartsWithSegments("/api/people") || context.Request.Path.StartsWithSegments("/api/studio");
     var active = context.RequestServices.GetRequiredService<CurrentTenant>().TenantId;
     if (business && active.HasValue && context.Request.Headers.TryGetValue("X-Expected-Tenant", out var expected) &&
         (!Guid.TryParse(expected.ToString(), out var expectedId) || expectedId != active))
@@ -172,5 +181,8 @@ app.MapAllocations();
 app.MapBudgets();
 app.MapResidentFinance();
 app.MapFinalStatements();
+app.MapMeetings();
+app.MapVoting();
+app.MapDocuments();
 app.Run();
 public partial class Program { }

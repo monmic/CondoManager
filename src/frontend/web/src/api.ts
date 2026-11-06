@@ -17,7 +17,7 @@ async function csrf(): Promise<string> {
 }
 export async function api<T>(path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> {
   const headers: Record<string, string> = {}
-  if (expectedTenant && ['/condominiums', '/people', '/studio', '/accounting', '/allocations', '/budgets', '/resident-finance', '/final-statements'].some(prefix => path.startsWith(prefix))) headers['X-Expected-Tenant'] = expectedTenant
+  if (expectedTenant && ['/documents', '/condominiums', '/people', '/studio', '/accounting', '/allocations', '/budgets', '/resident-finance', '/final-statements', '/meetings'].some(prefix => path.startsWith(prefix))) headers['X-Expected-Tenant'] = expectedTenant
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) headers['X-CSRF-TOKEN'] = await csrf()
   const response = await fetch('/api' + path, {
@@ -72,3 +72,24 @@ export const today = () => new Date().toLocaleDateString('sv-SE')
 export const condoPath = (id: string) => '/condominiums/' + id
 export type StudioRole = 'StudioAdmin' | 'Collaborator' | 'Viewer'
 export type CurrentUser = { id: string; email: string; isPlatformAdmin: boolean; memberships: { tenantId: string; name: string; role: StudioRole }[]; activeTenantId: string | null; activeTenantName: string | null; role: StudioRole | null; canWrite: boolean; isDevelopment: boolean }
+
+// Binary and multipart requests keep the same cookie, tenant precondition and CSRF safeguards.
+export async function documentRequest(path: string, form?: FormData): Promise<Response> {
+  const headers: Record<string, string> = {}
+  if (expectedTenant) headers['X-Expected-Tenant'] = expectedTenant
+  if (form) headers['X-CSRF-TOKEN'] = await csrf()
+  const response = await fetch('/api' + path, { method: form ? 'POST' : 'GET', body: form, headers, credentials: 'same-origin', cache: 'no-store' })
+  if (!response.ok) {
+    if (response.status === 401) window.dispatchEvent(new Event('cm-session-expired'))
+    if (response.status === 403) window.dispatchEvent(new Event('cm-permission-changed'))
+    const p = await response.json().catch(() => null) as { title?: string } | null
+    throw new ApiError(p?.title ?? 'Documento non disponibile.', response.status)
+  }
+  return response
+}
+export async function downloadDocument(path: string, name: string) {
+  const response = await documentRequest(path)
+  const blob = await response.blob(), url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a'); anchor.href = url; anchor.download = name; anchor.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}

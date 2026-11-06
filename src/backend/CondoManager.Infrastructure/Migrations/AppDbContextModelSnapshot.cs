@@ -1054,6 +1054,182 @@ namespace CondoManager.Infrastructure.Migrations
                     b.ToTable("Condominiums");
                 });
 
+            modelBuilder.Entity("CondoManager.Domain.CondominiumDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset>("FinalizedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("OperationalOnly")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("PreviousDocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("SourceFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StorageKey")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "StorageKey")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "CondominiumId", "CreatedAt");
+
+                    b.HasIndex("TenantId", "CondominiumId", "PreviousDocumentId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "RequestId")
+                        .IsUnique();
+
+                    b.ToTable("Documents", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Document_Metadata", "\"SizeBytes\">0 AND \"Version\">0 AND length(\"Sha256\")=64 AND \"Status\" BETWEEN 0 AND 3 AND \"Type\" BETWEEN 0 AND 9");
+                        });
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.CondominiumMeeting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AccountingPeriodId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CurrentSnapshotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("RemoteMeetingUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "AccountingPeriodId", "Status");
+
+                    b.HasIndex("TenantId", "CondominiumId", "Id", "CurrentSnapshotId");
+
+                    b.ToTable("Meetings", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Meeting_State", "\"Version\">0 AND \"Type\" BETWEEN 0 AND 1 AND \"Status\" BETWEEN 0 AND 5");
+                        });
+                });
+
             modelBuilder.Entity("CondoManager.Domain.ConsumptionReading", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1133,6 +1309,52 @@ namespace CondoManager.Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("CK_Reading_Value", "\"Value\">=0 AND \"Boundary\" IN (0,1) AND ((NOT \"IsEstimated\" AND \"ReplacesReadingId\" IS NULL) OR \"Reason\" IS NOT NULL)");
                         });
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.DocumentLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("TargetType")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId", "CreatedAt");
+
+                    b.HasIndex("TenantId", "CondominiumId", "DocumentId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "TargetType", "TargetId");
+
+                    b.HasIndex("TenantId", "DocumentId", "TargetType", "TargetId")
+                        .IsUnique();
+
+                    b.ToTable("DocumentLinks");
                 });
 
             modelBuilder.Entity("CondoManager.Domain.ExpenseDocument", b =>
@@ -1803,6 +2025,1320 @@ namespace CondoManager.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CondoManager.Domain.MeetingAbsence", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "MeetingId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "PersonId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "SessionId");
+
+                    b.ToTable("MeetingAbsences");
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingAgendaDisposition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AgendaItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Disposition")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<Guid>("RecordedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "MeetingId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "MeetingId", "AgendaItemId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "AgendaItemId");
+
+                    b.ToTable("MeetingAgendaDispositions");
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingAgendaItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Category")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Position")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("RelatedId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("RelatedType")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "MeetingId", "Position")
+                        .IsUnique();
+
+                    b.ToTable("MeetingAgendaItems", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Agenda_Position", "\"Position\">0 AND ((\"RelatedId\" IS NULL)=(\"RelatedType\" IS NULL))");
+                        });
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingAttendance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CheckInAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("CheckOutAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ProxyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RepresentedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SnapshotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "PersonId");
+
+                    b.HasIndex("TenantId", "RepresentedById");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "ProxyId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "SessionId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "SnapshotId");
+
+                    b.ToTable("MeetingAttendances", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Attendance_Dates", "\"CheckOutAt\" IS NULL OR \"CheckOutAt\">=\"CheckInAt\"");
+                        });
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingAttendanceUnit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AttendanceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Millesimals")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)");
+
+                    b.Property<Guid>("PropertyUnitId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "MeetingId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "PropertyUnitId");
+
+                    b.HasIndex("TenantId", "SessionId", "PropertyUnitId")
+                        .IsUnique()
+                        .HasFilter("\"IsActive\"");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "AttendanceId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "SessionId");
+
+                    b.ToTable("MeetingAttendanceUnits");
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingBallot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Choice")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ExpressedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("HeadKey")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Millesimals")
+                        .HasPrecision(18, 6)
+                        .HasColumnType("numeric(18,6)");
+
+                    b.Property<Guid>("PrincipalId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("RecordedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RecordedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VoteId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "VoteId", "HeadKey")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "VoteId");
+
+                    b.ToTable("MeetingBallots", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Ballot_Choice", "\"Choice\" BETWEEN 0 AND 2 AND \"Millesimals\">=0 AND \"Revision\">0");
+                        });
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingBallotRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BallotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Choice")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("VoteId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "MeetingId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "BallotId", "Version")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "BallotId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "VoteId");
+
+                    b.ToTable("MeetingBallotRevisions");
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingCompletion", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompletedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "MeetingId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "MeetingId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "SessionId");
+
+                    b.ToTable("MeetingCompletions");
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingDecisionRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "MeetingId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "MeetingId", "RequestId")
+                        .IsUnique();
+
+                    b.ToTable("MeetingDecisionRequests");
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingMinutes", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ClosingNotes")
+                        .IsRequired()
+                        .HasMaxLength(12000)
+                        .HasColumnType("character varying(12000)");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CorrectionReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DiscussionNotes")
+                        .IsRequired()
+                        .HasMaxLength(60000)
+                        .HasColumnType("character varying(60000)");
+
+                    b.Property<Guid?>("DocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("FinalizedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("FinalizedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Introduction")
+                        .IsRequired()
+                        .HasMaxLength(12000)
+                        .HasColumnType("character varying(12000)");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PreparedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("PreviousMinutesId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Revision")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SourceFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("SourceJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasIndex("TenantId", "MeetingId")
+                        .IsUnique()
+                        .HasFilter("\"Status\" IN (0,1)");
+
+                    b.HasIndex("TenantId", "CondominiumId", "CreatedAt");
+
+                    b.HasIndex("TenantId", "CondominiumId", "DocumentId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "PreviousMinutesId");
+
+                    b.HasIndex("TenantId", "MeetingId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("MeetingMinutes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Minutes_State", "\"Version\">0 AND \"Revision\">0 AND \"Status\" BETWEEN 0 AND 3 AND ((\"Status\" IN (2,3)) = (\"DocumentId\" IS NOT NULL AND \"FinalizedAt\" IS NOT NULL AND \"FinalizedBy\" IS NOT NULL))");
+                        });
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingNotice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Channel")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Contact")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PersonId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RecipientName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("SnapshotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "PersonId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "SnapshotId");
+
+                    b.ToTable("MeetingNotices");
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingNoticeEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset>("DeclaredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DeclaredBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid>("NoticeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "MeetingId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "NoticeId");
+
+                    b.ToTable("MeetingNoticeEvents");
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingProxy", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DelegateId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DelegateName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("DelegatorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DelegatorName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("DocumentReference")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTimeOffset>("GrantedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid>("SnapshotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("VerifiedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("VerifiedBy")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "DelegateId");
+
+                    b.HasIndex("TenantId", "DelegatorId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "SnapshotId");
+
+                    b.ToTable("MeetingProxies", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Proxy_People", "\"DelegatorId\"<>\"DelegateId\" AND \"Status\" BETWEEN 0 AND 4");
+                        });
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingProxyUnit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PropertyUnitId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProxyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "MeetingId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "PropertyUnitId");
+
+                    b.HasIndex("TenantId", "MeetingId", "PropertyUnitId")
+                        .IsUnique()
+                        .HasFilter("\"IsActive\"");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "ProxyId");
+
+                    b.ToTable("MeetingProxyUnits");
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingQuorumCheck", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CheckedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CheckedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RuleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SnapshotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "RuleId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "SessionId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "SnapshotId");
+
+                    b.ToTable("MeetingQuorumChecks");
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingResolution", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AgendaItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("CorrectionReason")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FinalizedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Outcome")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("PreviousResolutionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResolutionText")
+                        .IsRequired()
+                        .HasMaxLength(12000)
+                        .HasColumnType("character varying(12000)");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("VoteId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasIndex("PreviousResolutionId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "MeetingId", "RequestId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "VoteId", "Version")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "AgendaItemId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "PreviousResolutionId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "VoteId");
+
+                    b.ToTable("MeetingResolutions");
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingRevision", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("ActorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "MeetingId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "MeetingId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("MeetingRevisions");
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Call")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("StartsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "MeetingId", "Call")
+                        .IsUnique();
+
+                    b.ToTable("MeetingSessions", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_MeetingSession_State", "\"Call\" BETWEEN 0 AND 1 AND \"Status\" BETWEEN 0 AND 3");
+                        });
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingSnapshot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AllocationTableId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateOnly>("ReferenceDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "AllocationTableId");
+
+                    b.HasIndex("TenantId", "MeetingId", "Version")
+                        .IsUnique();
+
+                    b.ToTable("MeetingSnapshots");
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AgendaItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ElectorateJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid?>("FinalizedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("OpenedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("QuorumCheckId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ResultJson")
+                        .HasColumnType("jsonb");
+
+                    b.Property<Guid>("RuleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RuleVersion")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SnapshotId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SourceFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<int>("Status")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "MeetingId")
+                        .IsUnique()
+                        .HasFilter("\"Status\"=1");
+
+                    b.HasIndex("TenantId", "CondominiumId", "RuleId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "AgendaItemId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "QuorumCheckId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "SessionId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "SnapshotId");
+
+                    b.HasIndex("TenantId", "MeetingId", "SessionId", "AgendaItemId")
+                        .IsUnique()
+                        .HasFilter("\"Status\"=1");
+
+                    b.ToTable("MeetingVotes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_MeetingVote_Status", "\"Status\" BETWEEN 0 AND 4 AND \"RuleVersion\">0");
+                        });
+                });
+
             modelBuilder.Entity("CondoManager.Domain.OpeningPosition", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2375,6 +3911,76 @@ namespace CondoManager.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("CondoManager.Domain.ResolutionApplication", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AppliedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("HistoricalOnly")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("MeetingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RelatedId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("RelatedType")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("RequestId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ResolutionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetFingerprint")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "Id");
+
+                    b.HasAlternateKey("TenantId", "CondominiumId", "MeetingId", "Id");
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "MeetingId", "RequestId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "CondominiumId", "MeetingId", "ResolutionId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "RelatedType", "RelatedId")
+                        .IsUnique();
+
+                    b.ToTable("ResolutionApplications");
+                });
+
             modelBuilder.Entity("CondoManager.Domain.SettlementPosition", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2700,6 +4306,88 @@ namespace CondoManager.Infrastructure.Migrations
                     b.ToTable("Memberships", null, t =>
                         {
                             t.HasCheckConstraint("CK_Membership_Role", "\"Role\" IN (0,1,2)");
+                        });
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.VotingRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("CondominiumId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CriteriaJson")
+                        .IsRequired()
+                        .HasColumnType("jsonb");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<DateOnly>("EffectiveFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("EffectiveTo")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("PreviousVersionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ReviewNote")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<DateTimeOffset?>("ReviewedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ReviewedBy")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .IsConcurrencyToken()
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TenantId")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Version")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasAlternateKey("TenantId", "Id");
+
+                    b.HasIndex("PreviousVersionId")
+                        .IsUnique();
+
+                    b.HasIndex("TenantId", "CondominiumId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "PreviousVersionId");
+
+                    b.HasIndex("TenantId", "CondominiumId", "Code", "Version")
+                        .IsUnique();
+
+                    b.ToTable("VotingRules", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_VotingRule_Version", "\"Version\">0 AND \"Status\" BETWEEN 0 AND 2 AND (\"EffectiveTo\" IS NULL OR \"EffectiveTo\">=\"EffectiveFrom\")");
                         });
                 });
 
@@ -3481,6 +5169,56 @@ namespace CondoManager.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("CondoManager.Domain.CondominiumDocument", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumDocument", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "PreviousDocumentId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.CondominiumMeeting", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.AccountingPeriod", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "AccountingPeriodId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CondoManager.Domain.MeetingSnapshot", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "Id", "CurrentSnapshotId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("CondoManager.Domain.ConsumptionReading", b =>
                 {
                     b.HasOne("CondoManager.Domain.Tenant", null)
@@ -3515,6 +5253,29 @@ namespace CondoManager.Infrastructure.Migrations
                         .HasForeignKey("TenantId", "CondominiumId", "ReplacesReadingId")
                         .HasPrincipalKey("TenantId", "CondominiumId", "Id")
                         .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.DocumentLink", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumDocument", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "DocumentId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("CondoManager.Domain.ExpenseDocument", b =>
@@ -3830,6 +5591,719 @@ namespace CondoManager.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("CondoManager.Domain.MeetingAbsence", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Person", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "PersonId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingSession", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "SessionId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingAgendaDisposition", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingAgendaItem", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "AgendaItemId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingAgendaItem", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingAttendance", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Person", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "PersonId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Person", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "RepresentedById")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingProxy", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "ProxyId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CondoManager.Domain.MeetingSession", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "SessionId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingSnapshot", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "SnapshotId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingAttendanceUnit", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.PropertyUnit", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "PropertyUnitId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingAttendance", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "AttendanceId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingSession", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "SessionId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingBallot", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingVote", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "VoteId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingBallotRevision", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingBallot", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "BallotId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingVote", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "VoteId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingCompletion", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingSession", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "SessionId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingDecisionRequest", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingMinutes", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumDocument", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "DocumentId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingMinutes", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "PreviousMinutesId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingNotice", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Person", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "PersonId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingSnapshot", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "SnapshotId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingNoticeEvent", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingNotice", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "NoticeId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingProxy", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Person", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "DelegateId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Person", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "DelegatorId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingSnapshot", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "SnapshotId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingProxyUnit", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.PropertyUnit", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "PropertyUnitId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingProxy", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "ProxyId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingQuorumCheck", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.VotingRule", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "RuleId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingSession", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "SessionId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingSnapshot", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "SnapshotId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingResolution", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingAgendaItem", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "AgendaItemId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingResolution", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "PreviousResolutionId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CondoManager.Domain.MeetingVote", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "VoteId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingRevision", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingSession", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingSnapshot", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.AllocationTable", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "AllocationTableId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.MeetingVote", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.VotingRule", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "RuleId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingAgendaItem", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "AgendaItemId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingQuorumCheck", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "QuorumCheckId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingSession", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "SessionId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingSnapshot", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "SnapshotId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CondoManager.Domain.OpeningPosition", b =>
                 {
                     b.HasOne("CondoManager.Domain.Tenant", null)
@@ -4100,6 +6574,36 @@ namespace CondoManager.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("CondoManager.Domain.ResolutionApplication", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.CondominiumMeeting", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.MeetingResolution", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "MeetingId", "ResolutionId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "MeetingId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("CondoManager.Domain.SettlementPosition", b =>
                 {
                     b.HasOne("CondoManager.Domain.Tenant", null)
@@ -4224,6 +6728,28 @@ namespace CondoManager.Infrastructure.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("CondoManager.Domain.VotingRule", b =>
+                {
+                    b.HasOne("CondoManager.Domain.Tenant", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.Condominium", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId")
+                        .HasPrincipalKey("TenantId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("CondoManager.Domain.VotingRule", null)
+                        .WithMany()
+                        .HasForeignKey("TenantId", "CondominiumId", "PreviousVersionId")
+                        .HasPrincipalKey("TenantId", "CondominiumId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("CondoManager.Infrastructure.SecurityGrant", b =>

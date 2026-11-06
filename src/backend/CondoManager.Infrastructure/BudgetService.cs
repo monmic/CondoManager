@@ -15,10 +15,10 @@ public sealed class BudgetService(AppDbContext db,ICurrentTenant current,Allocat
     private async Task Scope(Guid condo,CancellationToken ct) {_=Tenant;if(!await db.Condominiums.AnyAsync(c=>c.Id==condo,ct)) throw new NotFoundException();}
     private async Task<T> Write<T>(Guid condo,Func<Task<T>> action,CancellationToken ct)
     {
-        current.RequireWrite();await Scope(condo,ct);await using var tx=await db.Database.BeginTransactionAsync(ct);
+        current.RequireWrite();await Scope(condo,ct);await using var tx=db.Database.CurrentTransaction==null?await db.Database.BeginTransactionAsync(ct):null;
         await db.Database.ExecuteSqlInterpolatedAsync($"SELECT 1 FROM \"Condominiums\" WHERE \"Id\"={condo} AND \"TenantId\"={Tenant} FOR UPDATE",ct);
         if(!await db.Condominiums.AnyAsync(c=>c.Id==condo && c.IsActive,ct)) throw new InvalidOperationException("Condominio inattivo.");
-        var result=await action();await db.SaveChangesAsync(ct);await tx.CommitAsync(ct);return result;
+        var result=await action();await db.SaveChangesAsync(ct);if(tx!=null)await tx.CommitAsync(ct);return result;
     }
     private async Task<Budget> Load(Guid condo,Guid id,CancellationToken ct)=>await db.Budgets.SingleOrDefaultAsync(b=>b.Id==id && b.CondominiumId==condo,ct)??throw new NotFoundException();
     private async Task<AccountingPeriod> Period(Guid condo,Guid id,CancellationToken ct)
@@ -70,7 +70,7 @@ public sealed class BudgetService(AppDbContext db,ICurrentTenant current,Allocat
         return new(Hash(new{Actor=current.UserId,Budget=b.Id,b.Version,b.Description,b.Notes,Lines=lines.Select(l=>l.ParametersJson),Snapshot=snapshot,Engine=AllocationEngine.Version}),snapshot,result);
     }
     public async Task<BudgetPreviewDto> Preview(Guid condo,Guid id,CancellationToken ct)
-    {await Scope(condo,ct);await using var tx=await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead,ct);var b=await Load(condo,id,ct);var result=b.AllocationSnapshotJson==null?await Calculate(condo,b,false,ct):Read<BudgetPreviewDto>(b.AllocationSnapshotJson);await tx.CommitAsync(ct);return result;}
+    {await Scope(condo,ct);await using var tx=db.Database.CurrentTransaction==null?await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead,ct):null;var b=await Load(condo,id,ct);var result=b.AllocationSnapshotJson==null?await Calculate(condo,b,false,ct):Read<BudgetPreviewDto>(b.AllocationSnapshotJson);if(tx!=null)await tx.CommitAsync(ct);return result;}
     public Task<BudgetDto> Approve(Guid condo,Guid id,BudgetApprovalInput input,CancellationToken ct)=>Write(condo,async()=>{
         current.RequireAdmin();var b=await Load(condo,id,ct);
         if(b.Status==BudgetStatus.Approved) {var saved=Read<BudgetPreviewDto>(b.AllocationSnapshotJson!);if(saved.Hash==input.PreviewHash && b.DecisionReference==Guard.Optional(input.DecisionReference))return await Dto(b,ct);throw new InvalidOperationException("Approvazione gia eseguita con parametri diversi.");}

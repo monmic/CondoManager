@@ -1,4 +1,4 @@
-param([int]$Port = 55439, [switch]$Browser, [string]$TestFilter = '')
+param([int]$Port = 55439, [switch]$Browser, [string]$TestFilter = '', [string]$BrowserFilter = '')
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot
 $project = 'cm-m06-check-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
@@ -47,7 +47,7 @@ try {
         try {
             npm run build
             if ($LASTEXITCODE) { throw 'Build frontend fallita.' }
-            npm run test:e2e
+            if ($BrowserFilter) { npm run test:e2e -- $BrowserFilter } else { npm run test:e2e }
             if ($LASTEXITCODE) { throw 'Test browser falliti.' }
         } finally { Pop-Location }
     }

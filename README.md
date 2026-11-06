@@ -1,4 +1,4 @@
-# CondoManager — M06.3: consuntivi, conguagli e chiusura
+﻿# CondoManager — M07.3: verbali PDF e archivio documentale
 Modular monolith net8.0, ASP.NET Core Identity, EF Core/Npgsql 8, PostgreSQL 16,
 React/TypeScript/Vite. Supporta account condivisi tra piu studi tramite membership.
 Anagrafiche, Identity e contabilita M04 rimangono operative. M05 aggiunge regole, consumi, simulazione e conferma dei riparti con snapshot immutabili.
@@ -454,3 +454,191 @@ Le nuove differenze finali non generano automaticamente un secondo piano di risc
 Vedere [formule e limiti](docs/architecture/milestone-063-final-statements.md),
 [ADR](docs/decisions/0008-final-statements-and-carry.md) e
 [verifiche](docs/architecture/milestone-063-verification.md).
+
+## M07.1 — Assemblee, convocazioni e presenze
+
+La sezione **Assemblee** gestisce prima/seconda convocazione, ordine del giorno,
+versioni M06 collegate, destinatari storicizzati, invii dichiarati manualmente,
+deleghe verificate e presenze per sessione. Non invia email/PEC e non calcola quorum.
+
+Migration aggiunta: `20261106162359_MeetingsMilestone071`. Nessun aggiornamento
+automatico del database. Verifica riproducibile, solo su PostgreSQL isolato:
+
+```powershell
+.\scripts\Verify-Postgres.ps1 -Browser
+```
+
+Avvio API/frontend e configurazione Docker/Identity rimangono quelli documentati
+sopra. Per verificare un'assemblea dall'interfaccia con dati sintetici:
+
+1. Preparare unità, soggetti e associazioni storiche, più una tabella millesimale attiva.
+2. Aprire **Assemblee**, selezionare il condominio e creare una nuova assemblea,
+   indicando luogo e date ISO con fuso (es. `2026-12-10T07:00:00+01:00`).
+   La seconda convocazione è facoltativa e distinta.
+3. Inserire i punti ODG; collegare facoltativamente la versione esatta di un
+   preventivo/consuntivo o un esercizio. Modificare o riordinare prima della convocazione.
+4. In **Aventi diritto**, scegliere data di riferimento e tabella, ricostruire
+   l'elenco e controllare anomalie e rappresentanti unitari. Per comproprietà scegliere
+   esplicitamente il rappresentante; consolidare lo snapshot con un motivo.
+5. In **Convocazioni**, verificare i recapiti e preparare un record per ogni destinatario.
+   Ready/Sent/Delivered sono eventi manuali dichiarati, senza prova verificata implicita.
+6. In **Assemblea**, programmare e consolidare la convocazione. In **Deleghe**,
+   selezionare delegante, delegato e unità; presentare la delega e verificarla come
+   StudioAdmin. Non si può usare una delega non verificata.
+7. Registrare l'esito della prima sessione (avviata/terminata o non tenuta).
+   Avviare esplicitamente la sessione interessata, quindi registrare presenze dirette,
+   remote o tramite delega, eventuali assenze e uscite. Le quote sono informative.
+8. Consultare **Storico**: snapshot precedenti e revisioni non vengono sovrascritti.
+   Dopo un cambio titolarità, ricostruire l'anteprima e riconciliare esplicitamente
+   prima dell'avvio, revocando prima le deleghe attive.
+
+Esempio browser: unità A con 120 millesimi, titolare X rappresentato dal delegato Y;
+prima convocazione non tenuta, presenza tramite delega verificata nella seconda.
+Risultato: un presente effettivo, una unità e 120 millesimi informativi, senza duplicazioni.
+
+[Modello e limiti](docs/architecture/milestone-071-meetings.md),
+[ADR rappresentanza](docs/decisions/0009-meeting-representation.md),
+[glossario](docs/domain/meetings-glossary.md),
+[verifiche](docs/architecture/milestone-071-verification.md).
+Limite storico M07.1: M07.2 e M07.3 sono ora descritte nelle sezioni successive.
+
+## M07.2 — Quorum, votazioni e delibere
+
+La pagina **Assemblee → Quorum e votazioni** gestisce criteri versionati,
+quorum costitutivo per sessione, platee congelate, voti e loro revisioni,
+delibere immutabili, rettifiche testuali, applicazione esplicita M06 e conclusione.
+La maggioranza delle teste e quella del valore sono controlli separati, con
+frazioni esatte. Approved significa soddisfazione del criterio selezionato,
+non certificazione legale: leggere le [fonti e limitazioni](docs/architecture/milestone-072-legal-sources.md).
+
+Migration: `20261106210126_VotingMilestone072`, dieci tabelle additive.
+Nessuna migration automatica all'avvio o sul database di lavoro. Verifica isolata:
+
+```powershell
+.\scripts\Verify-Postgres.ps1 -Browser
+# Solo il nuovo flusso, sempre con PostgreSQL isolato:
+.\scripts\Verify-Postgres.ps1 -TestFilter 'FullyQualifiedName~Voting' -Browser -BrowserFilter voting.spec.ts
+```
+
+I comandi di avvio Docker, API HTTPS, bootstrap Identity e frontend restano quelli
+documentati sopra. Procedura UI con dati sintetici:
+
+1. Preparare l'assemblea M07.1: ODG con UUID della versione esatta del preventivo
+   o consuntivo, snapshot anagrafico/millesimale, destinatari e dichiarazioni manuali
+   di invio. Verificare deleghe scritte e registrare le presenze della sessione.
+2. In **Criteri**, StudioAdmin crea una versione da modello numerico o configurazione
+   esplicita; sceglie finalità, chiamata, materia, frazioni, denominatori e validità.
+   La attiva con una nota di revisione dell'ambito. I template non sono attivati da soli.
+3. In **Quorum**, scegliere sessione e criterio costitutivo, motivare verifica delle
+   convocazioni, titolarità e deleghe. Eventuali esclusioni/scelte per materia vanno
+   motivate. Conservare la verifica e risolvere le anomalie prima di deliberare.
+4. In **Votazioni**, scegliere ODG, criterio e verifica costitutiva della stessa
+   sessione. Aprire: la platea e le fonti M06 sono congelate. Registrare InFavor,
+   Against o Abstained per testa rappresentata; modificare solo prima della chiusura.
+   Assenti e presenti non votanti restano distinti.
+5. Chiudere il voto. In **Delibere**, StudioAdmin consolida titolo/testo con l'esito
+   calcolato. Una rettifica testuale crea una nuova versione con motivo, senza
+   cambiare l'esito o i voti precedenti.
+6. Per un bilancio Proposed applicare esplicitamente **Applica approvazione M06**.
+   Per un bilancio già Approved scegliere il solo collegamento storico. Non vengono
+   generate rate, crediti o scritture; completare questo passo prima della conclusione.
+7. In **Conclusione**, classificare punti senza delibera come DiscussedWithoutVote
+   o Deferred. Registrare le uscite in Presenze, aggiornare la checklist e confermare
+   come StudioAdmin. Un voto aperto o una rappresentanza non determinabile blocca.
+
+Caso Edge verificato: tre teste, valori 500/300/200 su 1000; favorevoli A e C,
+contrario B. Con criterio prima ordinaria configurato, 2 > 3×1/2 e 700 >= 1000×1/2:
+esito Approved. Il preventivo collegato da **106.733,48 €** viene approvato soltanto
+con il comando M06, quindi l'assemblea viene conclusa. Il caso matematico con
+4 favorevoli su 6 ma soltanto 280 millesimi non passa il requisito di metà del valore.
+
+[Modello tecnico](docs/architecture/milestone-072-voting.md),
+[ADR](docs/decisions/0010-voting-snapshots.md),
+[glossario](docs/domain/voting-glossary.md),
+[rapporto verifiche](docs/architecture/milestone-072-verification.md).
+Limite storico M07.2, superato dalla M07.3 descritta sotto.
+
+## M07.3 — Verbali PDF e archivio privato
+
+La sezione **Assemblee → Verbale e documenti** prepara il verbale da uno snapshot
+M07.2 concluso. **Documenti** apre l'archivio del condominio senza selezionare
+un'assemblea. Accesso riservato a StudioAdmin/Collaborator; finalizzazione solo
+StudioAdmin. Viewer non accede a file contenenti recapiti e altri dati personali.
+
+1. Completare presenze, quorum, votazioni e delibere; applicare esplicitamente M06
+   quando necessario, quindi concludere l'assemblea.
+2. Aprire Verbale e documenti, creare una bozza e modificare introduzione,
+   discussione per punti e chiusura.
+3. Scaricare l'anteprima BOZZA e controllare i dati consolidati.
+4. Verificare la checklist; StudioAdmin conferma Finalizza verbale.
+5. Scaricare il PDF definitivo; l'archivio mostra dimensione, SHA-256 e collegamenti.
+6. Per rettificare, indicare una motivazione e creare una nuova versione. Il PDF
+   originale resta disponibile; voti, delibere e approvazioni M06 non cambiano.
+7. Generare prospetti presenze/votazioni o un estratto usando l'ID della delibera;
+   la convocazione PDF richiede l'ID della convocazione, non della persona.
+8. Caricare allegati PDF/JPEG/PNG, con collegamenti opzionali validati dal backend.
+
+Il PDF non è automaticamente firmato. L'archivio non è conservazione digitale a
+norma. Non è attivo uno scanner antivirus; i controlli formato non lo sostituiscono.
+
+Configurazione locale (directory privata ignorata da Git):
+
+```powershell
+$env:Documents__RootPath = Join-Path $PWD '.local\documents'
+$env:Documents__MaxUploadBytes = '8388608'
+dotnet run --project src/backend/CondoManager.Api
+```
+
+Migration additiva: `20261106223138_DocumentsMilestone073`.
+L'applicazione al proprio database resta un'operazione esplicita dopo backup;
+non viene eseguita all'avvio. Lo storage deve essere esterno alla directory SPA.
+
+### Docker con volume documentale
+
+Il compose predefinito resta PostgreSQL. L'override aggiunge API e SPA, storage e
+key ring persistenti; richiede un certificato HTTPS PFX di cui l'utente controlli
+l'accesso. Non esporre password nella cronologia: impostarle da prompt protetto o
+secret manager. Configurare POSTGRES_USER/POSTGRES_PASSWORD come sopra, più:
+
+```powershell
+$env:HTTPS_CERT_DIRECTORY = Join-Path $PWD '.certs' # contiene https.pfx
+$certCredential = Get-Credential -Message 'Password del certificato HTTPS PFX'
+$env:HTTPS_CERT_PASSWORD = $certCredential.GetNetworkCredential().Password
+docker compose -f compose.yaml -f compose.documents.yaml up -d --build
+```
+
+L'API risponde su https://localhost:7262. I volumi document_files e protection_keys
+non hanno URL pubblici. Il bootstrap Identity è sempre esplicito; il container non
+crea utenti o applica migration automaticamente. In produzione usare un certificato
+attendibile e permessi minimi; il PFX protegge anche il key ring Data Protection.
+Per aggiornare il database usare il comando EF esplicito della sezione iniziale
+con la connection string locale corretta, senza reset. Per fermare: `docker compose
+-f compose.yaml -f compose.documents.yaml stop` (senza eliminare volumi).
+
+### Backup, ripristino e recupero
+
+Arrestare le istanze API prima del backup consistente. Salvare insieme:
+PostgreSQL (pg_dump formato custom), contenuto del volume document_files, key ring,
+certificato necessario a decifrarlo e configurazione. Proteggere/cifrare i backup e
+verificarne periodicamente il ripristino su ambiente isolato. Per la copia di un
+volume usare un mount in sola lettura e una destinazione di backup protetta;
+non usare redirezione binaria PowerShell 5.1 per pg_dump.
+
+Ripristinare prima schema/dati e file della stessa generazione, poi key ring e
+configurazione; verificare hash e disponibilità tramite download autorizzato prima
+di riaprire l'accesso. Non ricreare il database di lavoro per una verifica.
+
+Crash o commit DB ambiguo possono lasciare marker pendenti. In manutenzione, con
+API ferme e configurazione storage/DB corretta:
+
+```powershell
+dotnet run --project src/backend/CondoManager.Api --no-launch-profile -- --document-storage-recover
+```
+
+Il comando tratta solo marker più vecchi di 24 ore, controlla il DB e non elimina
+file definitivi referenziati. DB irraggiungibile o integrità errata interrompono il
+recupero. Non è necessario eseguirlo normalmente dopo un upload riuscito.
+
+Dettagli: [architettura documentale](docs/architecture/milestone-073-documents.md),
+[glossario](docs/domain/documents.md), [ADR 0011](docs/decisions/0011-document-storage-pdf.md),
+[verifica M07.3](docs/architecture/milestone-073-verification.md).

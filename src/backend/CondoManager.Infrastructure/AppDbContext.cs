@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.AspNetCore.Identity;
 using CondoManager.Application;
 using CondoManager.Domain;
@@ -43,6 +43,9 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
         ConfigureBudgets(m);
         ConfigureResidentFinance(m);
         ConfigureFinalStatements(m);
+        ConfigureMeetings(m);
+        ConfigureVoting(m);
+        ConfigureDocuments(m);
         m.Entity<Tenant>(b => {
             b.HasKey(x => x.Id); b.HasIndex(x => x.Code).IsUnique();
             b.HasQueryFilter(x => CurrentTenantId != null && x.Id == CurrentTenantId);
@@ -115,6 +118,13 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
         foreach (var entity in m.Model.GetEntityTypes().Where(e => typeof(Entity).IsAssignableFrom(e.ClrType)))
         {
             foreach (var property in entity.GetProperties().Where(p => p.ClrType == typeof(string) && p.GetColumnType() != "jsonb")) property.SetMaxLength(160);
+            foreach (var property in entity.GetProperties().Where(p => (typeof(MeetingEntity).IsAssignableFrom(entity.ClrType) || entity.ClrType == typeof(CondominiumMeeting)) && (p.Name == "Description" || p.Name == "Contact" || p.Name == "RemoteMeetingUrl" || p.Name == "DocumentReference" || p.Name == "Reference"))) property.SetMaxLength(property.Name == "Description" ? 4000 : 1000);
+            foreach (var property in entity.GetProperties().Where(p => p.Name == "ResolutionText")) property.SetMaxLength(12000);
+            foreach (var property in entity.GetProperties().Where(p => entity.ClrType == typeof(VotingRule) && p.Name == "ReviewNote" || entity.ClrType == typeof(MeetingResolution) && p.Name == "CorrectionReason" || entity.ClrType == typeof(MeetingAgendaDisposition) && p.Name == "Reason")) property.SetMaxLength(2000);
+            foreach (var property in entity.GetProperties().Where(p => entity.ClrType == typeof(MeetingMinutes) && (p.Name == "Introduction" || p.Name == "ClosingNotes"))) property.SetMaxLength(12000);
+            foreach (var property in entity.GetProperties().Where(p => entity.ClrType == typeof(MeetingMinutes) && p.Name == "DiscussionNotes")) property.SetMaxLength(60000);
+            foreach (var property in entity.GetProperties().Where(p => entity.ClrType == typeof(MeetingMinutes) && p.Name == "CorrectionReason")) property.SetMaxLength(2000);
+            foreach (var property in entity.GetProperties().Where(p => entity.ClrType == typeof(CondominiumDocument) && p.Name == "Description")) property.SetMaxLength(4000);
             foreach (var property in entity.GetProperties().Where(p => p.Name == "Notes")) property.SetMaxLength(4000);
             foreach (var property in entity.GetProperties().Where(p => p.Name == "CadastralData")) property.SetMaxLength(2000);
             foreach (var property in entity.GetProperties().Where(p => p.Name == "MailingAddress")) property.SetMaxLength(500);
@@ -174,7 +184,8 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
                 throw new InvalidOperationException("Esercizio chiuso immutabile.");
             if (entry.Entity is JournalEntry or JournalEntryLine or ExpensePayment && entry.State != EntityState.Added)
                 throw new InvalidOperationException("Scrittura contabilizzata immutabile: usare uno storno.");
-            if (entry.Entity is SettlementPosition or ResidentOpening or OpeningPosition or AdministrativeClosure or PlanSchedule or InstallmentDebtor or Installment or ResidentReceipt or ReceiptAllocation or AllocationRun or AllocationRunSource or AllocationRunLine or ConsumptionReading && entry.State != EntityState.Added) throw new InvalidOperationException("Storico del riparto o lettura immutabile: creare una rettifica.");
+            if (entry.Entity is CondominiumDocument or DocumentLink or MeetingQuorumCheck or MeetingBallotRevision or MeetingResolution or ResolutionApplication or MeetingAgendaDisposition or MeetingCompletion or MeetingDecisionRequest or MeetingAbsence or MeetingSnapshot or MeetingNoticeEvent or MeetingRevision or SettlementPosition or ResidentOpening or OpeningPosition or AdministrativeClosure or PlanSchedule or InstallmentDebtor or Installment or ResidentReceipt or ReceiptAllocation or AllocationRun or AllocationRunSource or AllocationRunLine or ConsumptionReading && entry.State != EntityState.Added) throw new InvalidOperationException("Storico del riparto o lettura immutabile: creare una rettifica.");
+            if (entry.Entity is MeetingMinutes && entry.State != EntityState.Added && (MinutesStatus)entry.Property(nameof(MeetingMinutes.Status)).OriginalValue! is MinutesStatus.Finalized or MinutesStatus.Superseded) throw new InvalidOperationException("Verbale definitivo immutabile.");
             if (entry.Entity is Tenant) throw new InvalidOperationException("Provisioning tenant non disponibile.");
             if (entry.Entity is TenantEntity row)
             {

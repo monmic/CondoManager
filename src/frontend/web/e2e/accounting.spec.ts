@@ -26,6 +26,7 @@ test('contabilita reale: fattura, pagamenti parziali, incasso, saldi e storni', 
   await page.getByLabel('Data fine').fill('2026-12-31')
   await page.getByRole('button', { name: 'Salva', exact: true }).click()
   await page.getByRole('button', { name: 'Apri esercizio', exact: true }).click()
+  await expect(page.getByRole('cell', { name: 'Open', exact: true })).toBeVisible()
   await page.getByRole('button', { name: 'Contabilità', exact: true }).click()
   await page.getByRole('button', { name: 'Piano dei conti', exact: true }).click()
   await expect(page.getByRole('cell', { name: 'Debiti verso fornitori', exact: false })).toBeVisible()
