@@ -1,48 +1,37 @@
-# Architettura — Milestone 02
+# Architettura — Milestone 03
 ~~~mermaid
 flowchart LR
-    React[React / TypeScript] -->|/api via Vite| Api[ASP.NET Core net8.0]
-    Api --> Application[Application: contratti e DTO]
-    Api --> Infrastructure[Infrastructure: RegistryService e AppDbContext]
+    Web[React / TypeScript] -->|HTTPS same-origin + cookie + CSRF| Api[ASP.NET Core API]
+    Api --> Application[Application: contratti, DTO, regole membership]
+    Api --> Infrastructure[Infrastructure: Identity, EF, servizi, SMTP]
+    Application --> Domain[Domain: modello e invarianti]
     Infrastructure --> Application
-    Application --> Domain[Domain: entita e invarianti]
     Infrastructure --> Domain
-    Infrastructure --> PostgreSQL[(PostgreSQL 16)]
+    Infrastructure --> DB[(PostgreSQL)]
 ~~~
 
-Rimangono gli stessi progetti della Milestone 01. Domain non dipende da
-framework o persistenza. Application espone ITenantContext, IRegistryService,
-input/output DTO ed errori applicativi. RegistryService in Infrastructure
-implementa questi use case con transazioni EF e richiama le regole del dominio:
-non e stato aggiunto un repository generico o EF ad Application.
-Api compone DI, converte gli errori in ProblemDetails e mappa esclusivamente DTO.
-Le entita persistite non vengono serializzate direttamente.
+Si riutilizzano i progetti M01/M02. Domain e indipendente da Identity e da EF.
+Application contiene ICurrentTenant, contratti e regole; Infrastructure implementa
+gli adapter di persistenza/Identity/email. API compone DI e policy HTTP.
+Nessuna entita EF viene esposta direttamente.
 
-AppDbContext applica filtri tenant per istanza e controlla tutte le scritture;
-TenantId e concurrency token per UPDATE/DELETE anche di entita scollegate.
-FK composite includono tenant e, dove necessario, condominio.
-Migrazioni manuali: nessuna creazione automatica di schema o dati all'avvio.
+AppDbContext ora estende IdentityDbContext, conservando le tabelle condominiali
+e aggiungendo solo schema di sicurezza. Non si duplicano tenant o anagrafiche.
+TenantMembership lega un account a piu studi con ruolo/stato per studio.
+Il tenant di sviluppo e rimosso come autorita: valgono cookie validato e
+membership riletta dal database, anche in produzione.
 
-Il tenant di sviluppo e un'eccezione esplicita all'attesa dell'autenticazione:
-viene letto dalla configurazione server dopo la composizione dell'host,
-mai dalla richiesta. API dati registrate solo in Development con UUID valido.
-Endpoint filter verifica anche l'esistenza dello studio. In Production/Staging
-rimangono solo health e session (metadati di disponibilita, nessun dato tenant).
-Non e un modello di autorizzazione per un deployment esposto.
+API protette per default. Policy, guardie dei servizi e SaveChanges affiancano
+filtri EF e FK composite; PlatformAdmin non aggira queste verifiche.
+Il frontend mostra i menu secondo i permessi, gestisce 401/403, sessione scaduta,
+selezione studio, cambio password e inviti, senza memorizzare token persistenti.
+La SPA compilata viene servita dall'API sulla stessa origine HTTPS.
 
-Per mutazioni delle strutture, quote, legami ed esercizi, il servizio prende un
-lock transazionale sulla riga del condominio, filtrato anche per TenantId.
-Questo serializza modifiche concorrenti dello stesso condominio. PostgreSQL
-impone inoltre esclusione degli intervalli per esercizi e legami dello stesso
-soggetto/unita/ruolo, e trigger di immutabilita per esercizi chiusi e tabelle attive.
+I vincoli M02 rimangono: storia soggetti/unita, quote decimal, bozze/attivazione,
+esercizi non sovrapposti e chiusi immutabili. Migrazioni manuali, nessun reset,
+seed o bootstrap automatico all'avvio.
 
-Il frontend usa API reali, stati caricamento/errore/vuoto, form riutilizzabili,
-conferme per attivazione/chiusura e una navigazione adattabile al mobile.
-Fetch annulla le richieste obsolete e non mantiene i dati di una selezione diversa.
-Nessun dato mock permanente. Decimal trasferiti come stringhe JSON per conservarne
-le cifre; totali e validazione sono calcolati sul server.
-
-Vedere [modello dati](milestone-02-data-model.md),
-[API](api.md), [ADR tenant](../decisions/0002-development-tenant.md).
-Il resoconto della Milestone 01 resta una fotografia storica, non descrive
-le API operative introdotte in questa milestone.
+Vedere [Identity e sicurezza](identity-security.md),
+[ADR cookie](../decisions/0003-identity-cookies.md),
+[API](api.md) e [modello M02](milestone-02-data-model.md).
+I resoconti M01/M02 sono fotografie storiche, non lo stato delle API attuali.

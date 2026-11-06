@@ -14,7 +14,7 @@ public sealed class PostgresFactAttribute : FactAttribute
 }
 public class PostgresTests
 {
-    private sealed record Context(Guid? TenantId) : ITenantContext;
+    private sealed record Context(Guid? TenantId) : ICurrentTenant { public Guid? UserId => TenantId; public StudioRole? Role => TenantId.HasValue ? StudioRole.StudioAdmin : null; }
     [PostgresFact]
     public async Task MigrationPersistenceAndCrossTenantForeignKeys()
     {

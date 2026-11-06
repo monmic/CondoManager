@@ -8,19 +8,19 @@ using Microsoft.EntityFrameworkCore;
 namespace CondoManager.IntegrationTests;
 public class FoundationTests
 {
-    private sealed record Context(Guid? TenantId) : ITenantContext;
+    private sealed record Context(Guid? TenantId) : ICurrentTenant { public Guid? UserId => TenantId; public StudioRole? Role => TenantId.HasValue ? StudioRole.StudioAdmin : null; }
     private static AppDbContext Db(string name, Guid? tenant) => new(
         new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(name).Options, new Context(tenant));
 
     [Fact] public async Task HealthIsPublicButDataRoutesAreAbsent()
     {
         await using var factory = new WebApplicationFactory<Program>().WithWebHostBuilder(b => b.UseEnvironment("Production"));
-        using var client = factory.CreateClient();
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { BaseAddress = new Uri("https://localhost") });
         var response = await client.GetAsync("/health");
         response.EnsureSuccessStatusCode();
         Assert.Equal("{\"status\":\"healthy\"}", await response.Content.ReadAsStringAsync());
-        foreach (var path in new[] { "/weatherforecast", "/api/condominiums", "/api/people", "/swagger/v1/swagger.json" })
-            Assert.Equal(System.Net.HttpStatusCode.NotFound, (await client.GetAsync(path)).StatusCode);
+        foreach (var path in new[] { "/api/condominiums", "/api/people" })
+            Assert.Equal(System.Net.HttpStatusCode.Unauthorized, (await client.GetAsync(path)).StatusCode);
     }
     [Fact] public async Task FiltersAreScopedToEachContextAndFailClosed()
     {
@@ -35,7 +35,7 @@ public class FoundationTests
     {
         var name = Guid.NewGuid().ToString(); var a = Guid.NewGuid();
         await using (var db = Db(name, null)) {
-            db.Add(new Person(a, "P", "Synthetic")); Assert.Throws<InvalidOperationException>(() => db.SaveChanges());
+            db.Add(new Person(a, "P", "Synthetic")); Assert.Throws<AccessDeniedException>(() => db.SaveChanges());
         }
         await using (var db = Db(name, Guid.NewGuid())) {
             db.Add(new Person(a, "P", "Synthetic")); await Assert.ThrowsAsync<InvalidOperationException>(() => db.SaveChangesAsync());

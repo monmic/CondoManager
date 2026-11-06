@@ -1,0 +1,1 @@
+throw 'Procedura sostituita: usare scripts/Bootstrap-Identity.ps1. DevelopmentTenant__Id non autorizza piu alcun accesso.'

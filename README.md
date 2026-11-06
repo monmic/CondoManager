@@ -1,92 +1,166 @@
-# CondoManager — Milestone 02
-Gestionale condominiale modular monolith: progetti .NET 8, EF Core/Npgsql 8,
-PostgreSQL 16 e React/TypeScript/Vite. Anagrafiche, associazioni storicizzate,
-tabelle millesimali ed esercizi persistono realmente su PostgreSQL.
+# CondoManager — Milestone 03
+Modular monolith net8.0, ASP.NET Core Identity, EF Core/Npgsql 8, PostgreSQL 16,
+React/TypeScript/Vite. Supporta account condivisi tra piu studi tramite membership.
+Le funzionalita anagrafiche della Milestone 02 rimangono operative.
 
 ## Prerequisiti Windows
-- Windows PowerShell 5.1 o PowerShell 7.
-- SDK con supporto .slnx (9.0.200+; verificato con 10.0.403) e runtime ASP.NET Core 8.
-  Tutti i progetti compilano per net8.0.
-- Node.js 24 e npm.
-- Docker Desktop avviato, con container Linux.
-- Microsoft Edge per il test browser opzionale (Playwright, canale msedge).
+Windows PowerShell 5.1 o PowerShell 7, SDK con supporto .slnx (9.0.200+;
+verificato con 10.0.403), runtime ASP.NET Core 8, Node 24/npm, Docker Desktop.
+Microsoft Edge per il test browser opzionale. Tutti i progetti restano net8.0.
+Leggere AGENTS.md prima di contribuire; nessun commit automatico.
 
-## Database e studio di sviluppo
-Dalla radice del repository, in PowerShell:
+## Database e migrazioni
+Dalla radice:
 ~~~powershell
 dotnet tool restore
 $env:POSTGRES_USER = 'condomanager'
-$credential = Get-Credential -UserName $env:POSTGRES_USER -Message 'Password locale PostgreSQL'
+$credential = Get-Credential -UserName $env:POSTGRES_USER -Message 'Password PostgreSQL locale'
 $env:POSTGRES_PASSWORD = $credential.GetNetworkCredential().Password
 $env:ConnectionStrings__CondoManager = "Host=127.0.0.1;Port=5432;Database=condomanager;Username=$env:POSTGRES_USER;Password=$env:POSTGRES_PASSWORD"
 docker compose up -d --wait
 dotnet ef database update --project src/backend/CondoManager.Infrastructure
-
-$env:ASPNETCORE_ENVIRONMENT = 'Development'
-$env:DevelopmentTenant__Id = [Guid]::NewGuid().ToString()
-.scriptsInitialize-DevelopmentTenant.ps1
 ~~~
-Conservare il valore di DevelopmentTenant__Id per accedere allo stesso studio
-nelle sessioni successive: e un identificativo, non una credenziale.
-Non rigenerarlo a ogni avvio se si vuole riaprire lo studio esistente.
-Lo script crea solo il Tenant indicato, senza modificare record esistenti.
-Non carica condomini, persone o altri dati dimostrativi.
+Porta PostgreSQL pubblicata solo su loopback; POSTGRES_PORT puo modificarla.
+Aggiornare anche la connection string. La password di un utente PostgreSQL
+gia creato non cambia semplicemente modificando l'ambiente.
+Arresto conservativo: docker compose stop. Non usare down -v sul database di lavoro.
 
-POSTGRES_PORT cambia la porta host (default 5432); aggiornare anche la connection
-string. La porta PostgreSQL e pubblicata solo su loopback. Il volume conserva
-i dati: cambiare POSTGRES_PASSWORD nell'ambiente non aggiorna utenti gia creati.
-Arresto non distruttivo: docker compose stop.
-Non eseguire down -v sul database di lavoro.
+Migrazioni:
+- 20261105220532_InitialFoundation.
+- 20261105222055_RegistryMilestone02, con btree_gist e trigger contabili.
+- 20261105233533_IdentitySecurityMilestone03: solo nuove tabelle/indici/FK Identity,
+  membership, sessioni, grant e audit. Non altera o cancella dati delle anagrafiche.
 
-Segreti solo nell'ambiente o nei user secrets configurati localmente.
-Non salvare password in appsettings, compose, script, file .env o Git.
+Applicazione delle migrazioni sempre esplicita; nessun reset o seed all'avvio.
+M02/M03 sono forward-only: downgrade vietato per evitare perdita di dati.
+Usare un ruolo di migrazione separato dal ruolo runtime in produzione.
 
-## Backend e frontend
-Nello stesso terminale con le variabili appena configurate:
+## Primo amministratore e primo studio
+Il bootstrap e un comando locale esplicito: l'API HTTP non viene avviata.
+Dopo la migrazione, scegliere l'UUID del primo studio. Per dati preesistenti,
+utilizzare il TenantId e il Code gia esistenti senza ricreare il database.
 ~~~powershell
-dotnet run --project src/backend/CondoManager.Api --no-launch-profile --urls http://127.0.0.1:5080
+$studioId = [Guid]::NewGuid() # solo per un NUOVO studio; conservare questo UUID
+.\scripts\Bootstrap-Identity.ps1 -TenantId $studioId -Email 'amministratore@example.invalid' -TenantCode 'STUDIO' -TenantName 'Il mio studio'
 ~~~
-In un secondo terminale:
+Sostituire l'email di esempio con quella controllata dall'amministratore.
+Lo script chiede la password con prompt protetto: 12-128 caratteri, maiuscole,
+minuscole, numero e simbolo. Non passare password in argomenti di shell.
+Le variabili Bootstrap__* esistono solo durante il comando e sono ripristinate.
+L'account riceve PlatformAdmin globale e una membership StudioAdmin ESPLICITA
+nel solo studio indicato. Il ruolo globale da solo non autorizza dati degli studi.
+
+Ripetere con gli stessi UUID/codice/email non duplica account o membership e non
+reimposta password esistenti. Account disabilitati o membership esistenti diverse
+non vengono sovrascritti automaticamente. Ogni esecuzione e registrata in audit.
+Il bootstrap non offre un endpoint pubblico e non e eseguito all'avvio normale.
+
+DevelopmentTenant__Id non ha piu alcun effetto, in qualsiasi ambiente.
+Initialize-DevelopmentTenant.ps1 e disabilitato e rimanda al bootstrap Identity.
+
+## Avvio e verifica login
+Compilare la SPA e avviare l'API HTTPS nello stesso terminale configurato:
 ~~~powershell
-Set-Location src/frontend/web
+Push-Location src/frontend/web
 npm install
-npm run dev
+npm run build
+Pop-Location
+dotnet dev-certs https --check
+# Solo se necessario, l'operatore configura/considera attendibile il certificato locale:
+# dotnet dev-certs https --trust
+$env:ASPNETCORE_ENVIRONMENT = 'Development'
+dotnet run --project src/backend/CondoManager.Api --no-launch-profile --urls https://localhost:7262
 ~~~
-Aprire http://127.0.0.1:5173. Vite inoltra /api al backend sulla porta 5080.
-Swagger: http://127.0.0.1:5080/swagger, solo Development.
-GET /health restituisce {"status":"healthy"}: e una verifica del processo,
-non della disponibilita del database.
-Nessuna migrazione o creazione di studio automatica all'avvio.
+Aprire https://localhost:7262 e accedere con l'account del bootstrap.
+In Development la SPA compilata viene servita dalla directory dist del frontend.
+Frontend__RootPath puo indicare un percorso assoluto alternativo; in produzione
+deve essere configurato esplicitamente. Non servire la pagina di login via HTTP.
 
-Le API dei dati esistono **solo** in Development e con DevelopmentTenant__Id
-valido e non vuoto configurato sul server. In Production/Staging non vengono
-registrate, anche se la variabile e presente. GET /api/session espone solo lo
-stato della configurazione; nessun dato dello studio.
-Header, URL e body del client non possono selezionare il tenant.
-Questa modalita e destinata a dati sintetici su localhost: non c'e autenticazione.
-Tenant non inizializzato o database indisponibile vengono segnalati nell'interfaccia.
+Verifiche manuali: login, studio attivo nell'intestazione, consultazione condomini,
+Account/cambio password, Utenti studio/inviti e logout. Con piu membership viene
+richiesta la selezione di uno studio. Viewer vede solo azioni di consultazione;
+StudioAdmin gestisce gli accessi del proprio studio. PlatformAdmin gestisce lo
+stato globale degli account, senza accesso implicito ai loro dati condominiali.
 
-## Uso
-1. Condomini: crea e modifica l'anagrafica, poi Apri per gestire strutture e unita.
-   Edificio e scala sono facoltativi; le scale possono appartenere a un edificio
-   oppure direttamente al condominio. La disattivazione conserva i dati.
-2. Anagrafiche: crea persone fisiche/giuridiche. Dal dettaglio condominio associa
-   soggetti alle unita con ruolo, validita e quota frazionaria per i proprietari.
-   Per un passaggio di proprieta, concludi il vecchio legame e creane uno nuovo.
-   Le date finali sono inclusive: il nuovo legame dello stesso soggetto/ruolo
-   inizia dal giorno seguente per non sovrapporsi.
-3. Tabelle millesimali: seleziona un condominio, crea una bozza, inserisci e salva
-   le quote. Il server mostra totale e unita mancanti. Zero e un valore esplicito.
-   Attiva solo dopo aver raggiunto il denominatore esatto e coperto ogni unita
-   attiva. Attivazione rende configurazione e quote immutabili.
-4. Esercizi: crea un intervallo libero anche non solare, modifica la bozza,
-   apri e infine chiudi. Date e denominazione si modificano solo in Draft.
-   La chiusura e definitiva; non ci sono riapertura, bilancio o riparti.
+Le API /api rifiutano HTTP. GET /health rimane pubblico e verifica il processo,
+non PostgreSQL. Swagger solo Development e autenticato.
+Non ci sono CORS permissivi: SPA e API operano sulla stessa origine.
 
-Codici univoci nello studio o nel condominio, case-sensitive e senza spazi agli
-estremi. Codici fiscali normalizzati maiuscoli e univoci nello studio quando
-presenti. Nessuna verifica fiscale esterna o algoritmo nazionale implicito.
-Un codice disattivato rimane riservato per conservare identita e storico.
+### Vite con hot reload (facoltativo)
+Il percorso principale verificato e la SPA compilata servita dall'API.
+Per Vite HTTPS, esportare il proprio certificato locale in una cartella ignorata:
+~~~powershell
+New-Item -ItemType Directory -Force .artifacts | Out-Null
+# Impostare DEV_HTTPS_PFX_PASSWORD nell'ambiente con un valore locale segreto.
+dotnet dev-certs https --export-path .artifacts/devcert.pfx --password $env:DEV_HTTPS_PFX_PASSWORD
+$env:DEV_HTTPS_PFX_PATH = (Resolve-Path .artifacts/devcert.pfx).Path
+Push-Location src/frontend/web
+npm run dev
+Pop-Location
+~~~
+Vite richiede certificato/password e inoltra /api a https://localhost:7262.
+La verifica del certificato del solo proxy locale Vite e disabilitata per il
+certificato self-signed; questo non e un'impostazione di produzione.
+Non versionare certificati privati o file .env. La build non richiede certificati.
+
+## Inviti, recupero password ed email
+Inviti: token casuale monouso, 48 ore; reset: token casuale monouso, 30 minuti.
+Nel database sono conservati solo hash SHA-256. I link usano frammenti URL,
+rimossi subito dal frontend, senza token in query string o localStorage.
+Un account esistente deve autenticarsi con la stessa email per accettare
+un invito; l'invito non puo sostituire o reimpostare la sua password.
+
+Configurazione SMTP tramite ambiente (user secrets richiede prima l'inizializzazione locale del progetto):
+Smtp__Host, Smtp__Port (default 587), Smtp__From,
+Smtp__Username e Smtp__Password se necessari.
+TLS obbligatorio; Security__PublicWebUrl deve essere l'URL HTTPS attendibile
+dell'app, senza query o frammenti. Non viene costruito dall'header Host.
+SMTP richiede credenziali esterne: la consegna verso un provider reale non e
+verificabile senza la relativa configurazione.
+
+Senza SMTP, solo Development usa una casella IN MEMORIA:
+- StudioAdmin vede, in Utenti studio, gli inviti emessi DA LUI nello studio attivo.
+- Ogni utente vede in Account solo i link di reset destinati alla PROPRIA email.
+- Un utente disconnesso non puo leggere la casella: per recupero reale usare SMTP.
+- Il riavvio perde i messaggi, non i grant nel DB; richiedere un nuovo link.
+- Nessun endpoint della casella esiste in Production/Staging.
+- Nessun token viene scritto nei log o restituito dall'API normale degli inviti.
+
+In produzione senza SMTP, richieste di invito/reset rispondono 503 in modo
+uniforme; non viene pubblicato un token o simulata una consegna email.
+
+## Sessioni, autorizzazione e produzione
+Cookie __Host-CondoManager: Secure, HttpOnly, SameSite=Lax, Path=/, senza Domain.
+Scadenza assoluta di 8 ore, senza rinnovo automatico e senza remember-me.
+Ogni richiesta verifica utente attivo, sessione DB non revocata/scaduta,
+security stamp e membership attiva. Ruolo/tenant non sono autorita nel cookie.
+Logout revoca la sessione anche contro replay del vecchio cookie.
+Cambio/reset password e disabilitazione globale revocano tutte le sessioni.
+
+Le mutazioni richiedono X-CSRF-TOKEN ottenuto da GET /api/auth/csrf.
+Il cookie antiforgery e Secure/HttpOnly/SameSite=Strict; il token richiesta
+rimane solo in memoria. Non sono usati JWT o token persistenti in localStorage.
+Cambio ruolo/revoca membership valgono dalla richiesta successiva; operazioni
+gia autorizzate e in corso non vengono annullate retroattivamente.
+
+Prima di un deployment:
+- Configurare AllowedHosts con i DNS effettivi (default localhost;127.0.0.1).
+- Usare HTTPS end-to-end o configurare esplicitamente proxy conosciuti;
+  non sono accettati automaticamente X-Forwarded-* non attendibili.
+- Conservare il key ring Data Protection in modo persistente e protetto,
+  condiviso dalle istanze dello stesso ambiente: DataProtection__KeyPath.
+  Windows: DPAPI. Altri sistemi: DataProtection__CertificatePath e
+  DataProtection__CertificatePassword; un key path non protetto e rifiutato
+  fuori da Development su sistemi non Windows.
+- Separare e limitare i ruoli DB runtime/migrazione, proteggere backup e SMTP.
+- Il rate limiter IP e per processo (20 richieste auth/minuto); aggiungere
+  limitazione condivisa nel punto di ingresso in un deployment multi-istanza.
+
+Le verifiche applicative e le FK composite si aggiungono ai filtri EF.
+Non e implementato PostgreSQL RLS: SQL diretto/bulk e key ring sono confini
+privilegiati. Nessuna modalita di impersonazione/supporto automatico.
+Account/MFA e policy organizzative aggiuntive restano possibili estensioni,
+non sono parte del motore contabile della roadmap.
 
 ## Build e test
 ~~~powershell
@@ -97,54 +171,27 @@ npm install
 npm run build
 npm run lint
 Pop-Location
+.\scripts\Verify-Postgres.ps1
+.\scripts\Verify-Postgres.ps1 -Browser
 ~~~
-I test PostgreSQL vengono esplicitamente ignorati senza
-CONDOMANAGER_TEST_POSTGRES. Per eseguirli tutti su un database temporaneo isolato:
-~~~powershell
-.scriptsVerify-Postgres.ps1
-# Aggiunge il flusso browser reale con Microsoft Edge:
-.scriptsVerify-Postgres.ps1 -Browser
-~~~
-Richiede tool restore e npm install gia eseguiti. Porta test default 55439,
-modificabile con -Port. Lo script genera credenziali casuali solo in memoria,
-usa un progetto Compose univoco, applica le migrazioni e controlla lo snapshot EF.
-Esegue test di dominio/API/PostgreSQL, inclusa la migrazione di dati Milestone 01,
-e opzionalmente crea un tenant isolato per il browser. API e Vite vengono avviati
-dal runner browser su 5080/5173: queste porte devono essere libere.
-Rimuove solo container/network/volume del proprio progetto temporaneo, anche
-in caso di errore, e ripristina l'ambiente del processo chiamante.
-Non puntare CONDOMANAGER_TEST_POSTGRES a database di lavoro: i test inseriscono
-dati sintetici e creano un database aggiuntivo per verificare l'upgrade.
-Trace Playwright di eventuali errori in src/frontend/web/test-results (ignorato da Git).
+Senza CONDOMANAGER_TEST_POSTGRES i test PostgreSQL sono esplicitamente ignorati.
+L'harness crea un progetto Compose univoco, password solo in memoria, migra
+lo schema e verifica lo snapshot. Non usare questa variabile su un database
+di lavoro: i test inseriscono dati sintetici e creano un database di upgrade.
+Con -Browser usa Edge e il certificato HTTPS di sviluppo gia installato, esegue
+due volte il bootstrap, compila la SPA e avvia l'API su localhost:7262.
+Porta DB test default 55439, modificabile con -Port; le porte devono essere libere.
+Solo container/network/volume TEMPORANEI creati dall'harness vengono rimossi.
+Ambiente ripristinato; trace di autenticazione disabilitate per non catturare segreti.
 
-## Migrazioni e compatibilita
-- 20261105220532_InitialFoundation (Milestone 01, invariata).
-- 20261105222055_RegistryMilestone02: nuovi campi e scale, ruoli storici,
-  stati/denominatore, indici, vincoli e trigger PostgreSQL.
-  Dettagli SQL in RegistryMilestone02.Constraints.cs.
-
-La nuova migrazione conserva tabelle, UUID e relazioni esistenti; richiede
-l'estensione standard PostgreSQL btree_gist e un ruolo autorizzato a crearla.
-E forward-only: il downgrade e esplicitamente vietato per evitare perdita dati.
-Se dati storici hanno intervalli sovrapposti, la migrazione fallisce con rollback:
-occorre concordarne la correzione, non vengono cancellati o riscritti.
-Le anagrafiche legacy con campi non disponibili rimangono da completare; non sono
-inventati indirizzi, codici fiscali o tipo di soggetto.
-
-## Documentazione e limiti
+## Documentazione
 [Architettura](docs/architecture/overview.md),
-[modello e decisioni](docs/architecture/milestone-02-data-model.md),
-[ADR tenant](docs/decisions/0002-development-tenant.md),
-[glossario](docs/domain/glossary.md),
+[Identity e sicurezza](docs/architecture/identity-security.md),
 [API](docs/architecture/api.md),
-[esiti delle verifiche](docs/architecture/milestone-02-verification.md).
+[ADR autenticazione](docs/decisions/0003-identity-cookies.md),
+[modello anagrafiche](docs/architecture/milestone-02-data-model.md),
+[glossario](docs/domain/glossary.md),
+[esito verifiche M03](docs/architecture/milestone-03-verification.md).
 
-Nessun motore contabile, calcolo fiscale, bilancio o riparto.
-L'isolamento applicativo EF non sostituisce RLS; SQL e operazioni bulk sono
-riservati alle migrazioni, ai test e al lock parametrizzato dei servizi.
-Autenticazione, membership e distribuzione SaaS restano da implementare.
-Nessun commit automatico e nessuna modifica all'indice Git.
-
-Milestone 03 consigliata: autenticazione verificata, ruoli/membership degli studi,
-provisioning controllato e autorizzazione end-to-end prima di esporre le API
-fuori da Development.
+Milestone 04 proposta, non avviata: piano dei conti, spese e movimenti contabili.
+Nessun bilancio o riparto introdotto nella Milestone 03.

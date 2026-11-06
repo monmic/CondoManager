@@ -1,8 +1,8 @@
 param([int]$Port = 55439, [switch]$Browser)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot
-$project = 'cm-m02-check-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
-$names = @('POSTGRES_USER','POSTGRES_PASSWORD','POSTGRES_PORT','ConnectionStrings__CondoManager','CONDOMANAGER_TEST_POSTGRES','ASPNETCORE_ENVIRONMENT','DevelopmentTenant__Id','CONDOMANAGER_E2E')
+$project = 'cm-m03-check-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
+$names = @('POSTGRES_USER','POSTGRES_PASSWORD','POSTGRES_PORT','ConnectionStrings__CondoManager','CONDOMANAGER_TEST_POSTGRES','ASPNETCORE_ENVIRONMENT','Frontend__RootPath','CONDOMANAGER_E2E','CONDOMANAGER_E2E_EMAIL','CONDOMANAGER_E2E_PASSWORD','Bootstrap__Email','Bootstrap__Password','Bootstrap__TenantId','Bootstrap__TenantCode','Bootstrap__TenantName')
 $previous = @{}
 foreach ($name in $names) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }
 Push-Location $root
@@ -27,23 +27,31 @@ try {
     if ($LASTEXITCODE) { throw 'Test falliti.' }
     if ($Browser) {
         $env:ASPNETCORE_ENVIRONMENT = 'Development'
-        $env:DevelopmentTenant__Id = [Guid]::NewGuid().ToString()
+        $env:Frontend__RootPath = Join-Path $root 'src/frontend/web/dist'
+        $env:Bootstrap__TenantId = [Guid]::NewGuid().ToString()
+        $env:Bootstrap__TenantCode = 'BROWSER'
+        $env:Bootstrap__TenantName = 'Studio sintetico browser'
+        $env:Bootstrap__Email = 'browser-' + [Guid]::NewGuid().ToString('N') + '@test.invalid'
+        $random = [Security.Cryptography.RandomNumberGenerator]::Create()
+        try { $random.GetBytes($bytes) } finally { $random.Dispose() }
+        $env:Bootstrap__Password = [BitConverter]::ToString($bytes).Replace('-', '') + 'aA1!'
         $env:CONDOMANAGER_E2E = '1'
-        $tenant = $env:DevelopmentTenant__Id
-        $sql = @"
-INSERT INTO "Tenants" ("Id","Code","Name","CreatedAt","UpdatedAt")
-VALUES ('$tenant','E2E-$tenant','Studio sintetico browser',now(),now());
-"@
-        $sql | docker compose -p $project exec -T postgres psql -U $env:POSTGRES_USER -d condomanager -v ON_ERROR_STOP=1
-        if ($LASTEXITCODE) { throw 'Preparazione tenant browser fallita.' }
+        $env:CONDOMANAGER_E2E_EMAIL = $env:Bootstrap__Email
+        $env:CONDOMANAGER_E2E_PASSWORD = $env:Bootstrap__Password
+        # Execute twice to check idempotence through the actual protected CLI.
+        foreach($attempt in 1..2) {
+            dotnet run --no-build --project src/backend/CondoManager.Api --no-launch-profile -- --bootstrap
+            if ($LASTEXITCODE) { throw 'Bootstrap browser fallito.' }
+        }
         Push-Location src/frontend/web
         try {
+            npm run build
+            if ($LASTEXITCODE) { throw 'Build frontend fallita.' }
             npm run test:e2e
             if ($LASTEXITCODE) { throw 'Test browser falliti.' }
         } finally { Pop-Location }
     }
-}
-finally {
+} finally {
     # Only resources created by this unique verification project are removed.
     docker compose -p $project down -v
     foreach ($name in $names) { [Environment]::SetEnvironmentVariable($name, $previous[$name], 'Process') }

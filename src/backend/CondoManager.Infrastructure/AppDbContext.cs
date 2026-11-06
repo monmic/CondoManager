@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+using Microsoft.AspNetCore.Identity;
 using CondoManager.Application;
 using CondoManager.Domain;
 using Microsoft.EntityFrameworkCore;
@@ -5,8 +7,13 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CondoManager.Infrastructure;
 
-public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext) : DbContext(options)
+public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext) : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
+    public DbSet<TenantMembership> Memberships => Set<TenantMembership>();
+    public DbSet<UserSession> Sessions => Set<UserSession>();
+    public DbSet<SecurityGrant> SecurityGrants => Set<SecurityGrant>();
+    public DbSet<SecurityAudit> SecurityAudits => Set<SecurityAudit>();
+
     private Guid? CurrentTenantId => tenantContext.TenantId;
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Condominium> Condominiums => Set<Condominium>();
@@ -29,6 +36,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
     }
     protected override void OnModelCreating(ModelBuilder m)
     {
+        base.OnModelCreating(m);
+        ConfigureIdentity(m);
         m.Entity<Tenant>(b => {
             b.HasKey(x => x.Id); b.HasIndex(x => x.Code).IsUnique();
             b.HasQueryFilter(x => CurrentTenantId != null && x.Id == CurrentTenantId);
@@ -98,7 +107,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
         });
         m.Entity<Condominium>().HasIndex(x => new { x.TenantId, x.TaxCode }).IsUnique();
         m.Entity<Person>().HasIndex(x => new { x.TenantId, x.TaxCode }).IsUnique();
-        foreach (var entity in m.Model.GetEntityTypes())
+        foreach (var entity in m.Model.GetEntityTypes().Where(e => typeof(Entity).IsAssignableFrom(e.ClrType)))
         {
             foreach (var property in entity.GetProperties().Where(p => p.ClrType == typeof(string))) property.SetMaxLength(160);
             foreach (var property in entity.GetProperties().Where(p => p.Name == "Notes")) property.SetMaxLength(4000);
@@ -112,11 +121,47 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
         }
     }
 
+    private static void ConfigureIdentity(ModelBuilder m)
+    {
+        m.Entity<ApplicationUser>().HasIndex(x => x.NormalizedEmail).IsUnique();
+        m.Entity<TenantMembership>(b => {
+            b.ToTable("Memberships", t => t.HasCheckConstraint("CK_Membership_Role", "\"Role\" IN (0,1,2)"));
+            b.HasKey(x => x.Id);
+            b.HasIndex(x => new { x.TenantId, x.UserId }).IsUnique();
+            b.HasIndex(x => new { x.UserId, x.IsActive });
+            b.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+        });
+        m.Entity<UserSession>(b => {
+            b.HasKey(x => x.Id); b.HasIndex(x => x.UserId);
+            b.Property(x => x.SecurityStamp).HasMaxLength(256);
+            b.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<Tenant>().WithMany().HasForeignKey(x => x.ActiveTenantId).OnDelete(DeleteBehavior.Restrict);
+        });
+        m.Entity<SecurityGrant>(b => {
+            b.HasKey(x => x.Id); b.HasIndex(x => x.TokenHash).IsUnique();
+            b.HasIndex(x => new { x.TenantId, x.Purpose, x.NormalizedEmail });
+            b.Property(x => x.TokenHash).HasMaxLength(64);
+            b.Property(x => x.Email).HasMaxLength(256); b.Property(x => x.NormalizedEmail).HasMaxLength(256);
+            b.Property(x => x.SecurityStamp).HasMaxLength(256);
+            b.HasOne<Tenant>().WithMany().HasForeignKey(x => x.TenantId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Restrict);
+            b.HasOne<ApplicationUser>().WithMany().HasForeignKey(x => x.IssuedByUserId).OnDelete(DeleteBehavior.Restrict);
+        });
+        m.Entity<SecurityAudit>(b => {
+            b.HasKey(x => x.Id); b.HasIndex(x => new { x.TenantId, x.Timestamp });
+            b.Property(x => x.Event).HasMaxLength(80);
+            // IDs deliberately survive future account deletion; no sensitive free-form payload.
+        });
+    }
+
     private void PrepareWrites()
     {
         ChangeTracker.DetectChanges();
-        foreach (var entry in ChangeTracker.Entries().Where(e => e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
+        foreach (var entry in ChangeTracker.Entries().Where(e => e.Entity is Entity && (e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)))
         {
+            if (tenantContext is not ICurrentTenant access) throw new AccessDeniedException();
+            access.RequireWrite();
             if (CurrentTenantId is null || CurrentTenantId == Guid.Empty)
                 throw new InvalidOperationException("Contesto tenant autenticato obbligatorio.");
             if (entry.Entity is AccountingPeriod && entry.State != EntityState.Added &&

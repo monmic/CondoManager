@@ -1,23 +1,21 @@
 # Requisiti e perimetro
-Fonte: richieste del committente Milestone 01 e Milestone 02 nella sessione.
+Fonte: richieste del committente e AGENTS.md.
 
-Milestone 01 ha introdotto modular monolith net8.0, EF/PostgreSQL, React,
-audit/UUID e fondazioni tenant. Il suo resoconto resta in architecture.
+M01: fondazioni net8.0, EF/PostgreSQL, React, UUID/audit, isolamento tenant.
+M02: anagrafiche, unita, persone/storico, tabelle millesimali, esercizi.
+M03: Identity, cookie/CSRF, membership multi-studio, ruoli, inviti/reset,
+bootstrap CLI, audit e test di autorizzazione.
 
-Milestone 02 rende operative le anagrafiche:
-- Tenant server configurato esclusivamente in Development in assenza di auth.
-- CRUD condomini con indirizzo, fiscale opzionale e stato.
-- Edifici, scale facoltative e unita con tipologia, catasto e note.
-- Soggetti fisici/giuridici, recapiti e legami storici con unita/ruoli/date/quote.
-- Tabelle millesimali decimal con bozze, validazione totale/completezza e attivazione.
-- Esercizi non solari con divieto sovrapposizione e ciclo Draft/Open/Closed.
-- DTO, API REST reali, errori coerenti, interfaccia operativa, test automatici.
-- Migrazione senza eliminare dati o reinterpretare arbitrariamente anagrafiche legacy.
+L'eccezione tenant Development di M02 e sostituita da autenticazione verificata
+in TUTTI gli ambienti (ADR 0003). Nessun header o DTO autorizza da solo un tenant.
+Account globale e membership studio sono distinti. PlatformAdmin non bypassa
+le membership per i dati condominiali.
 
-Restano esclusi autenticazione, membership SaaS, motore contabile/riparti,
-bilanci, gestione assemblee e documenti.
-La modalita Development e una deroga esplicita al blocco API dati della
-Milestone 01, documentata in ADR 0002. Nessun TenantId client e attendibile.
+Nessuna registrazione pubblica degli studi, impersonazione, reset database o
+seed automatico. Migrazione M03 additiva e bootstrap manuale/protetto.
+Provider email astratto con SMTP TLS e casella Development autorizzata, mai
+token pubblici o in log di produzione.
 
-AGENTS.md continua a non essere presente; non e stato inventato un file di
-istruzioni. Nessun commit automatico o modifica intenzionale dell'indice Git.
+M04 (piano dei conti, spese e movimenti) non e iniziata. Restano esclusi motore
+contabile, riparti, bilanci, assemblee e documenti.
+Resoconti M01/M02 storici; vedere la verifica M03 per lo stato effettivo corrente.
