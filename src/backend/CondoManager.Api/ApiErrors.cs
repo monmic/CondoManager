@@ -8,7 +8,8 @@ public static class ApiErrors
     public static async Task Handle(HttpContext context, Exception exception)
     {
         if (exception is OperationCanceledException && context.RequestAborted.IsCancellationRequested) return;
-        var pg = exception as PostgresException ?? exception.InnerException as PostgresException;
+        PostgresException? pg = null;
+        for (Exception? cause = exception; cause != null; cause = cause.InnerException) if (cause is PostgresException found) { pg = found; break; }
         var (status, message) = exception switch
         {
             AccessDeniedException => (403, "Accesso non consentito per lo studio o il ruolo corrente."),

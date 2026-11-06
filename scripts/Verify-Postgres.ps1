@@ -1,7 +1,7 @@
 param([int]$Port = 55439, [switch]$Browser)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot
-$project = 'cm-m03-check-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
+$project = 'cm-m04-check-' + [Guid]::NewGuid().ToString('N').Substring(0,8)
 $names = @('POSTGRES_USER','POSTGRES_PASSWORD','POSTGRES_PORT','ConnectionStrings__CondoManager','CONDOMANAGER_TEST_POSTGRES','ASPNETCORE_ENVIRONMENT','Frontend__RootPath','CONDOMANAGER_E2E','CONDOMANAGER_E2E_EMAIL','CONDOMANAGER_E2E_PASSWORD','Bootstrap__Email','Bootstrap__Password','Bootstrap__TenantId','Bootstrap__TenantCode','Bootstrap__TenantName')
 $previous = @{}
 foreach ($name in $names) { $previous[$name] = [Environment]::GetEnvironmentVariable($name, 'Process') }

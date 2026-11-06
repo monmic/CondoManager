@@ -1,4 +1,4 @@
-# API — Milestone 03
+# API — Milestone 04
 Tutte le API richiedono HTTPS. Cookie Identity, nessun bearer token.
 GET /health pubblico: solo vitalita del processo.
 La SPA compilata e gli asset sono intenzionalmente pubblici, senza dati tenant.
@@ -74,3 +74,43 @@ ProblemDetails: 400 formato/CSRF/validazione; 401 sessione assente/scaduta;
 stack trace, password, cookie o token nelle risposte di errore.
 Swagger solo Development e autenticato; rimane documentata qui la serializzazione
 decimal stringa, diversa dallo schema numerico predefinito del generatore.
+## API contabili M04
+Prefisso /api/accounting. Membership verificata, cookie HTTPS, CSRF su mutazioni.
+Viewer legge; Collaborator/StudioAdmin scrivono. Solo StudioAdmin storna e usa
+Saldi di apertura nelle rettifiche manuali. Nessun TenantId nei DTO.
+
+| Route sotto il prefisso | Operazioni |
+| --- | --- |
+| /suppliers | GET, filtro search; POST |
+| /suppliers/{id} | PUT completo; DELETE disattivazione logica |
+| /condominiums/{c}/accounts | GET piano; POST conto |
+| /condominiums/{c}/accounts/{id} | PUT; type deve rimanere invariato |
+| /condominiums/{c}/accounts/initialize | POST piano mancante, senza overwrite |
+| /condominiums/{c}/expenses | GET, filtro period UUID; POST bozza |
+| /condominiums/{c}/expenses/{id} | PUT bozza; DELETE annullamento bozza |
+| /condominiums/{c}/expenses/{id}/register | POST PostingInput: requestId UUID |
+| /condominiums/{c}/expenses/{id}/payments | POST PaymentInput |
+| /condominiums/{c}/financial-accounts | GET saldi attuali; POST con apertura |
+| /condominiums/{c}/financial-accounts/{id} | PUT nome/IBAN/attivo, non saldo |
+| /condominiums/{c}/receipts | POST incasso generico non attribuito |
+| /condominiums/{c}/journals | GET filtri period/account/from/to/search; POST scrittura manuale |
+| /condominiums/{c}/journals/{id}/reverse | POST ReversalInput, StudioAdmin |
+| /condominiums/{c}/summary | GET totali e saldi, filtro period |
+
+DTO completi: AccountingContracts.cs. Date YYYY-MM-DD, enum stringhe, EUR come
+stringhe decimal invarianti in uscita; input numerico o stringa, massimo due
+decimali. Le righe JournalInput richiedono accountId/debit/credit, almeno due,
+solo un lato positivo per riga. Errori coerenti con ProblemDetails sopra.
+
+PaymentInput: requestId, accountingPeriodId, financialAccountId, date, amount,
+reference opzionale. ReversalInput: requestId, accountingPeriodId, date, reason.
+ReceiptInput aggiunge description. FinancialAccountInput include code del nuovo
+Asset dedicato, name, type BankAccount/Cash, iban opzionale, openingBalance,
+accountingPeriodId, date e requestId. Apertura zero non produce una scrittura zero.
+
+I POST contabili rispondono con JournalDto della registrazione; stesso RequestId
+con identico comando restituisce lo stesso UUID anche dopo la chiusura.
+Chiave riusata con contenuto diverso: 409. Solo salvataggi bozza/configurazione
+sono modificabili: nessuna PUT/DELETE per giornale o pagamenti contabilizzati.
+Una fattura registrata si annulla stornandone la scrittura dopo i pagamenti.
+Le liste forniscono i DTO di dettaglio, righe e storico inclusi; non espongono EF.

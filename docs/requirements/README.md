@@ -16,6 +16,4 @@ seed automatico. Migrazione M03 additiva e bootstrap manuale/protetto.
 Provider email astratto con SMTP TLS e casella Development autorizzata, mai
 token pubblici o in log di produzione.
 
-M04 (piano dei conti, spese e movimenti) non e iniziata. Restano esclusi motore
-contabile, riparti, bilanci, assemblee e documenti.
-Resoconti M01/M02 storici; vedere la verifica M03 per lo stato effettivo corrente.
+M04: piano dei conti, fornitori, documenti, pagamenti, banca/cassa e movimenti a partita doppia. Vedere docs/architecture/milestone-04-accounting.md e il resoconto M04. Restano esclusi riparti, conguagli, rate, bilanci certificati, assemblee e documenti. I resoconti precedenti rimangono fotografie storiche.

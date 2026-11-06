@@ -21,6 +21,7 @@ builder.Services.AddScoped<CurrentTenant>();
 builder.Services.AddScoped<ITenantContext>(s => s.GetRequiredService<CurrentTenant>());
 builder.Services.AddScoped<ICurrentTenant>(s => s.GetRequiredService<CurrentTenant>());
 builder.Services.AddScoped<IRegistryService, RegistryService>();
+builder.Services.AddScoped<IAccountingService, AccountingService>();
 builder.Services.AddScoped<IdentityService>();
 builder.Services.AddScoped<IdentityBootstrap>();
 builder.Services.AddDbContext<AppDbContext>((services, options) =>
@@ -130,7 +131,7 @@ app.UseAuthentication();
 app.Use(RequestSecurity.ResolveTenant);
 app.UseAuthorization();
 app.Use(async (context, next) => {
-    var business = context.Request.Path.StartsWithSegments("/api/condominiums") || context.Request.Path.StartsWithSegments("/api/people") || context.Request.Path.StartsWithSegments("/api/studio");
+    var business = context.Request.Path.StartsWithSegments("/api/accounting") || context.Request.Path.StartsWithSegments("/api/condominiums") || context.Request.Path.StartsWithSegments("/api/people") || context.Request.Path.StartsWithSegments("/api/studio");
     var active = context.RequestServices.GetRequiredService<CurrentTenant>().TenantId;
     if (business && active.HasValue && context.Request.Headers.TryGetValue("X-Expected-Tenant", out var expected) &&
         (!Guid.TryParse(expected.ToString(), out var expectedId) || expectedId != active))
@@ -159,5 +160,6 @@ if (app.Environment.IsDevelopment()) {
 app.MapGet("/health", () => Results.Ok(new { status = "healthy" })).AllowAnonymous();
 app.MapSecurity();
 app.MapRegistry();
+app.MapAccounting();
 app.Run();
 public partial class Program { }

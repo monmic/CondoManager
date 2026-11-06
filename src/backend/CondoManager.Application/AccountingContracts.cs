@@ -1,0 +1,44 @@
+using CondoManager.Domain;
+namespace CondoManager.Application;
+public record AccountInput(string Code, string Name, AccountType Type, string? Description, Guid? ParentAccountId, bool IsActive = true);
+public record AccountDto(Guid Id, string Code, string Name, AccountType Type, AccountPurpose Purpose, string? Description, Guid? ParentAccountId, bool IsActive);
+public record SupplierInput(string Name, string? TaxCode, string? VatNumber, string? Email, string? Phone, string? Address, string? Iban, string? Notes, bool IsActive = true);
+public record SupplierDto(Guid Id, string Name, string? TaxCode, string? VatNumber, string? Email, string? Phone, string? Address, string? Iban, string? Notes, bool IsActive);
+public record ExpenseInput(Guid AccountingPeriodId, Guid SupplierId, Guid AccountId, string DocumentNumber, DateOnly DocumentDate, DateOnly? DueDate, string Description, decimal NetAmount, decimal VatAmount, decimal GrossAmount, string? Notes);
+public record ExpenseDto(Guid Id, Guid AccountingPeriodId, Guid SupplierId, Guid AccountId, string DocumentNumber, DateOnly DocumentDate, DateOnly? DueDate, string Description, decimal NetAmount, decimal VatAmount, decimal GrossAmount, decimal PaidAmount, decimal Residual, ExpenseStatus Status, string? Notes, IReadOnlyList<PaymentDto> Payments);
+public record FinancialAccountInput(string Code, string Name, FinancialAccountType Type, string? Iban, decimal OpeningBalance, Guid AccountingPeriodId, DateOnly Date, Guid RequestId);
+public record FinancialAccountUpdate(string Name, string? Iban, bool IsActive);
+public record FinancialAccountDto(Guid Id, Guid AccountId, string Name, FinancialAccountType Type, string? Iban, decimal OpeningBalance, decimal Balance, bool IsActive);
+public record PostingInput(Guid RequestId);
+public record PaymentInput(Guid RequestId, Guid AccountingPeriodId, Guid FinancialAccountId, DateOnly Date, decimal Amount, string? Reference);
+public record ReceiptInput(Guid RequestId, Guid AccountingPeriodId, Guid FinancialAccountId, DateOnly Date, decimal Amount, string Description, string? Reference);
+public record JournalLineInput(Guid AccountId, decimal Debit, decimal Credit);
+public record JournalInput(Guid RequestId, Guid AccountingPeriodId, DateOnly Date, string Description, string? Reference, IReadOnlyList<JournalLineInput> Lines);
+public record ReversalInput(Guid RequestId, Guid AccountingPeriodId, DateOnly Date, string Reason);
+public record JournalLineDto(Guid AccountId, string Code, string Name, decimal Debit, decimal Credit);
+public record JournalDto(Guid Id, Guid AccountingPeriodId, DateOnly Date, string Description, string? Reference, JournalKind Kind, Guid? ExpenseDocumentId, Guid? ReversesEntryId, Guid? ReversedByEntryId, Guid RequestId, IReadOnlyList<JournalLineDto> Lines);
+public record PaymentDto(Guid Id, Guid FinancialAccountId, Guid JournalEntryId, DateOnly Date, decimal Amount, string? Reference, bool IsReversed);
+public record BalanceDto(Guid AccountId, string Code, string Name, AccountType Type, decimal Debit, decimal Credit, decimal Balance);
+public record LedgerSummary(decimal Expenses, decimal Payments, decimal Payables, decimal Availability, IReadOnlyList<BalanceDto> Balances, IReadOnlyList<JournalDto> RecentEntries);
+public interface IAccountingService
+{
+    Task<IReadOnlyList<AccountDto>> Accounts(Guid condo, CancellationToken ct);
+    Task<IReadOnlyList<AccountDto>> InitializeChart(Guid condo, CancellationToken ct);
+    Task<AccountDto> SaveAccount(Guid condo, Guid? id, AccountInput input, CancellationToken ct);
+    Task<IReadOnlyList<SupplierDto>> Suppliers(string? search, CancellationToken ct);
+    Task<SupplierDto> SaveSupplier(Guid? id, SupplierInput input, CancellationToken ct);
+    Task DeactivateSupplier(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<ExpenseDto>> Expenses(Guid condo, Guid? period, CancellationToken ct);
+    Task<ExpenseDto> SaveExpense(Guid condo, Guid? id, ExpenseInput input, CancellationToken ct);
+    Task<JournalDto> RegisterExpense(Guid condo, Guid id, PostingInput input, CancellationToken ct);
+    Task CancelDraft(Guid condo, Guid id, CancellationToken ct);
+    Task<JournalDto> Pay(Guid condo, Guid id, PaymentInput input, CancellationToken ct);
+    Task<IReadOnlyList<FinancialAccountDto>> FinancialAccounts(Guid condo, CancellationToken ct);
+    Task<FinancialAccountDto> CreateFinancialAccount(Guid condo, FinancialAccountInput input, CancellationToken ct);
+    Task<FinancialAccountDto> UpdateFinancialAccount(Guid condo, Guid id, FinancialAccountUpdate input, CancellationToken ct);
+    Task<JournalDto> Receipt(Guid condo, ReceiptInput input, CancellationToken ct);
+    Task<IReadOnlyList<JournalDto>> Journals(Guid condo, Guid? period, Guid? account, DateOnly? from, DateOnly? to, string? search, CancellationToken ct);
+    Task<JournalDto> Post(Guid condo, JournalInput input, CancellationToken ct);
+    Task<JournalDto> Reverse(Guid condo, Guid id, ReversalInput input, CancellationToken ct);
+    Task<LedgerSummary> Summary(Guid condo, Guid? period, CancellationToken ct);
+}

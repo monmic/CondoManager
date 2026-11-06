@@ -1,7 +1,7 @@
-# CondoManager — Milestone 03
+# CondoManager — Milestone 04
 Modular monolith net8.0, ASP.NET Core Identity, EF Core/Npgsql 8, PostgreSQL 16,
 React/TypeScript/Vite. Supporta account condivisi tra piu studi tramite membership.
-Le funzionalita anagrafiche della Milestone 02 rimangono operative.
+Anagrafiche e Identity rimangono operative; M04 aggiunge contabilita a partita doppia, documenti, pagamenti e saldi.
 
 ## Prerequisiti Windows
 Windows PowerShell 5.1 o PowerShell 7, SDK con supporto .slnx (9.0.200+;
@@ -193,5 +193,71 @@ Ambiente ripristinato; trace di autenticazione disabilitate per non catturare se
 [glossario](docs/domain/glossary.md),
 [esito verifiche M03](docs/architecture/milestone-03-verification.md).
 
-Milestone 04 proposta, non avviata: piano dei conti, spese e movimenti contabili.
-Nessun bilancio o riparto introdotto nella Milestone 03.
+
+## Contabilita — Milestone 04
+Migrazione nuova: **20261106091836_AccountingCoreMilestone04**. Solo nuove tabelle,
+indici/trigger e una chiave alternativa sugli esercizi: nessuna perdita di dati.
+Down vietato. Non serve ricreare il database o ripetere il bootstrap M03.
+Dopo aver impostato la connection string come sopra:
+~~~powershell
+docker compose up -d --wait
+dotnet ef database update --project src/backend/CondoManager.Infrastructure
+Push-Location src/frontend/web
+npm install
+npm run build
+Pop-Location
+$env:ASPNETCORE_ENVIRONMENT = 'Development'
+dotnet run --project src/backend/CondoManager.Api --no-launch-profile --urls https://localhost:7262
+~~~
+Aprire https://localhost:7262 con un account dello studio. Il frontend compilato
+viene servito dall'API; per Vite vedere la procedura HTTPS precedente.
+Non applicare migrazioni mentre e in corso una contabilizzazione.
+
+### Verifica dall'interfaccia
+Usare un condominio di prova e dati sintetici:
+1. Creare un condominio: il piano predefinito nasce nella stessa transazione.
+   Per uno gia esistente: Contabilita > Piano dei conti > Completa piano predefinito.
+2. In Esercizi contabili creare/aprire un intervallo che includa le date di prova.
+3. In Contabilita selezionare il condominio; Fornitori > Nuovo fornitore.
+4. Conti finanziari > Nuovo conto finanziario: codice contabile univoco, nome,
+   esercizio/data e saldo iniziale, ad esempio 500 EUR sintetici. Il saldo genera
+   una scrittura contro Saldi di apertura; non viene sommato di nuovo al registro.
+5. Documenti di spesa > Nuova spesa: scegliere esercizio, fornitore e categoria,
+   numero/data, imponibile 100, IVA 22, totale 122. Salvare la bozza, poi Registra.
+6. Paga: scegliere conto, data e 22,01; verificare residuo 99,99. Registrare poi
+   99,99 e verificare Pagato, residuo zero e disponibilita 378,00.
+7. Aprire il dettaglio documento per storico pagamenti; Movimenti per Dare/Avere,
+   dettaglio e filtri esercizio/conto/date/causale. Riepilogo mostra totali e saldi.
+8. Conti finanziari > Registra incasso generico: 200 EUR aumentano banca/cassa e
+   Incassi da attribuire; non costituiscono una rata pagata da un residente.
+9. StudioAdmin: Storna dal registro, scegliendo data in un esercizio aperto e
+   motivo. L'originale resta leggibile. Per annullare una fattura prima stornare
+   tutti i pagamenti e poi la fattura. Per correzioni creare una nuova operazione.
+10. Movimenti > Nuova scrittura manuale permette righe multiple con totali esatti;
+    conti di controllo fornitori/incassi riservati ai flussi dedicati. Correzioni
+    Saldi di apertura e storni richiedono StudioAdmin.
+
+Con un esercizio selezionato saldi/debiti sono variazioni di QUEL periodo, senza
+riporti automatici; disponibilita banca/cassa e sempre complessiva. OpeningBalance
+e una dichiarazione storica, non un saldo modificabile. Tutti gli importi EUR
+richiedono al massimo due decimali, senza arrotondamenti silenziosi.
+
+Viewer consulta; StudioAdmin e Collaborator registrano operazioni; storni e
+correzioni sul conto Saldi di apertura solo StudioAdmin. Ogni mutazione richiede
+membership, cookie HTTPS e CSRF anche per /api/accounting. Il tenant non e input.
+Nessuna nuova credenziale e nessuna dipendenza aggiunta per M04.
+
+Operazioni contabili atomiche con chiavi di idempotenza, vincoli e trigger PostgreSQL.
+In caso di rete incerta usare il retry della stessa operazione; prima di chiudere
+il modulo e reinserire un pagamento verificare il registro: una nuova operazione
+riceve una nuova chiave. Riferimenti bancari liberi non sono chiavi univoche.
+
+[Modello e regole contabili](docs/architecture/milestone-04-accounting.md),
+[ADR partita doppia](docs/decisions/0004-accounting-ledger.md),
+[glossario contabile](docs/domain/accounting-glossary.md),
+[verifiche M04](docs/architecture/milestone-04-verification.md).
+
+Limiti: liste/registro non paginati, nessun riporto automatico, liquidazione IVA,
+riconciliazione bancaria, OCR o allegati. Nessun riparto, conguaglio o rata.
+Prossima milestone proposta: collegamento categorie/tabelle, riparti decimal,
+criteri di arrotondamento e conguagli con versioni approvate; M05 non iniziata.

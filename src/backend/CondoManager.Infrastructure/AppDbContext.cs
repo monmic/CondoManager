@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace CondoManager.Infrastructure;
 
-public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext) : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
+public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options, ITenantContext tenantContext) : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options)
 {
     public DbSet<TenantMembership> Memberships => Set<TenantMembership>();
     public DbSet<UserSession> Sessions => Set<UserSession>();
@@ -38,6 +38,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
     {
         base.OnModelCreating(m);
         ConfigureIdentity(m);
+        ConfigureAccounting(m);
         m.Entity<Tenant>(b => {
             b.HasKey(x => x.Id); b.HasIndex(x => x.Code).IsUnique();
             b.HasQueryFilter(x => CurrentTenantId != null && x.Id == CurrentTenantId);
@@ -167,6 +168,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options, ITenant
             if (entry.Entity is AccountingPeriod && entry.State != EntityState.Added &&
                 (AccountingPeriodStatus)entry.Property(nameof(AccountingPeriod.Status)).OriginalValue! == AccountingPeriodStatus.Closed)
                 throw new InvalidOperationException("Esercizio chiuso immutabile.");
+            if (entry.Entity is JournalEntry or JournalEntryLine or ExpensePayment && entry.State != EntityState.Added)
+                throw new InvalidOperationException("Scrittura contabilizzata immutabile: usare uno storno.");
             if (entry.Entity is Tenant) throw new InvalidOperationException("Provisioning tenant non disponibile.");
             if (entry.Entity is TenantEntity row)
             {

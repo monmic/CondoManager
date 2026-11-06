@@ -40,7 +40,7 @@ public sealed class RegistryService(AppDbContext db, ITenantContext tenant) : IR
     {
         var row = id.HasValue ? await Condo(id.Value, ct) : new Condominium(TenantId, input.Code, input.Name);
         row.Update(input.Code, input.Name, input.TaxCode, input.Address, input.PostalCode, input.City, input.Province, input.Country, input.IsActive);
-        if (!id.HasValue) db.Add(row);
+        if (!id.HasValue) { db.Add(row); db.AddRange(Account.Defaults(TenantId,row.Id)); }
         await db.SaveChangesAsync(ct);
         return ToDto(row);
     }, ct);
