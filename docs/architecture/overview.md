@@ -1,4 +1,4 @@
-# Architettura — Milestone 04
+# Architettura — Milestone 05
 ~~~mermaid
 flowchart LR
     Web[React / TypeScript] -->|HTTPS same-origin + cookie + CSRF| Api[ASP.NET Core API]
@@ -44,3 +44,33 @@ Cookie, CSRF, membership e policy M03 continuano a proteggere tutte le route.
 Vedere il [modello contabile](milestone-04-accounting.md),
 [ADR 0004](../decisions/0004-accounting-ledger.md) e
 [verifiche M04](milestone-04-verification.md).
+
+## Motore ripartizioni M05
+AllocationEngine puro in Application; AllocationService risolve fonti e scope
+server-side, acquisisce lock e salva snapshot/versioni. Tabelle/utenti/esercizi e
+contabilita esistenti vengono riutilizzati. La conferma non genera movimenti.
+Vedere [modello M05](milestone-05-allocations.md),
+[ADR 0005](../decisions/0005-deterministic-allocations.md) e
+[verifiche M05](milestone-05-verification.md).
+
+## Incremento M06: preventivi
+BudgetService riutilizza AllocationService.ResolveCriteria e IAllocationEngine.
+Budget/BudgetLine hanno FK di scope e snapshot immutabili in approvazione.
+[Dettaglio e limitazioni](milestone-06-administration.md).
+M06 resta incompleta finché crediti, incassi e chiusura non saranno integrati
+nel giornale M04; l'incremento non modifica movimenti esistenti.
+
+## Modulo finanziario M06.2
+AccountingService è suddiviso in partial per piani e incassi, con gli stessi helper
+transazionali e di giornale M04. IResidentFinanceService espone DTO, non entità EF.
+[Modello, formule e limiti](milestone-062-finance.md),
+[ADR 0007](../decisions/0007-resident-receivables.md).
+## Consuntivi e chiusura M06.3
+
+IFinalStatementService usa AccountingService e i suoi confini transazionali.
+FinalStatement conserva snapshot di costi, riparti M05, preventivo approvato e
+debitori storici; StatementSettlement contabilizza soltanto le variazioni.
+ResidentOpening distingue importazione contabile da riporto documentale senza
+seconda scrittura. AdministrativeClosure congela checklist, giornale e posizioni.
+I controlli applicativi sono affiancati da vincoli PostgreSQL differiti e lock
+per condominio. [Modello completo](milestone-063-final-statements.md).

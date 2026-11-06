@@ -196,7 +196,7 @@ public class RegistryApiTests
         await Post<AccountingPeriodDto>(client, path, input with { Code = "B", StartsOn = new(2027, 7, 1), EndsOn = new(2028, 6, 30) });
         period = await Post<AccountingPeriodDto>(client, path + "/" + period.Id + "/open");
         Assert.Equal(AccountingPeriodStatus.Open, period.Status);
-        period = await Post<AccountingPeriodDto>(client, path + "/" + period.Id + "/close");
+        period = await AdministrativeTestFixture.Close(client,condo.Id,period.Id);
         Assert.Equal(AccountingPeriodStatus.Closed, period.Status); Assert.NotNull(period.ClosedAt);
         Assert.Equal(HttpStatusCode.Conflict, (await client.PutAsJsonAsync(path + "/" + period.Id, input, Json)).StatusCode);
         Assert.Equal(HttpStatusCode.Conflict, (await client.PostAsync(path + "/" + period.Id + "/open", null)).StatusCode);

@@ -196,7 +196,7 @@ public sealed class RegistryService(AppDbContext db, ITenantContext tenant) : IR
     public Task<AccountingPeriodDto> TransitionPeriod(Guid condominiumId, Guid id, bool close, CancellationToken ct) => Write(condominiumId, async () =>
     {
         var row = await db.AccountingPeriods.SingleOrDefaultAsync(x => x.Id == id && x.CondominiumId == condominiumId, ct) ?? throw new NotFoundException();
-        if (close) row.Close(); else row.Open();
+        if (close) throw new InvalidOperationException("Usare Consuntivi > Checklist e chiusura amministrativa: la chiusura diretta non esegue i controlli obbligatori."); else row.Open();
         return ToDto(row);
     }, ct);
 

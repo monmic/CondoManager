@@ -16,4 +16,8 @@ seed automatico. Migrazione M03 additiva e bootstrap manuale/protetto.
 Provider email astratto con SMTP TLS e casella Development autorizzata, mai
 token pubblici o in log di produzione.
 
-M04: piano dei conti, fornitori, documenti, pagamenti, banca/cassa e movimenti a partita doppia. Vedere docs/architecture/milestone-04-accounting.md e il resoconto M04. Restano esclusi riparti, conguagli, rate, bilanci certificati, assemblee e documenti. I resoconti precedenti rimangono fotografie storiche.
+M04: piano dei conti, fornitori, documenti, pagamenti, banca/cassa e movimenti a partita doppia. Vedere docs/architecture/milestone-04-accounting.md e il resoconto M04. Nel perimetro M04 restavano esclusi i riparti, introdotti in M05. Restano esclusi conguagli, rate, bilanci certificati, assemblee e documenti. I resoconti precedenti rimangono fotografie storiche.
+M05: regole e gruppi, consumi/letture rettificate, addebiti diretti, motore puro
+con quadratura deterministica al centesimo, preview/conferma, snapshot e versioni.
+Non genera crediti, rate, bilanci o conguagli e non modifica i movimenti M04.
+Vedere modello e verifiche M05; i resoconti precedenti sono fotografie storiche.

@@ -17,7 +17,7 @@ async function csrf(): Promise<string> {
 }
 export async function api<T>(path: string, method = 'GET', body?: unknown, signal?: AbortSignal): Promise<T> {
   const headers: Record<string, string> = {}
-  if (expectedTenant && ['/condominiums', '/people', '/studio', '/accounting'].some(prefix => path.startsWith(prefix))) headers['X-Expected-Tenant'] = expectedTenant
+  if (expectedTenant && ['/condominiums', '/people', '/studio', '/accounting', '/allocations', '/budgets', '/resident-finance', '/final-statements'].some(prefix => path.startsWith(prefix))) headers['X-Expected-Tenant'] = expectedTenant
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (!['GET', 'HEAD', 'OPTIONS'].includes(method)) headers['X-CSRF-TOKEN'] = await csrf()
   const response = await fetch('/api' + path, {

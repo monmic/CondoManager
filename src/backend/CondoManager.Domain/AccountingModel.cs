@@ -1,10 +1,10 @@
 namespace CondoManager.Domain;
 
 public enum AccountType { Asset, Liability, Equity, Income, Expense }
-public enum AccountPurpose { General, Payables, UnallocatedReceipts, OpeningEquity }
+public enum AccountPurpose { General, Payables, UnallocatedReceipts, OpeningEquity, ResidentReceivables, BudgetContributions }
 public enum FinancialAccountType { BankAccount, Cash }
 public enum ExpenseStatus { Draft, Registered, PartiallyPaid, Paid, Cancelled }
-public enum JournalKind { Manual, Expense, Payment, Receipt, Opening, Reversal }
+public enum JournalKind { Manual, Expense, Payment, Receipt, Opening, Reversal, Assessment, ReceiptAttribution, FinalAdjustment, ResidentOpening }
 public static class Money
 {
     public const decimal Maximum = 9999999999999999.99m;

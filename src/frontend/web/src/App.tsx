@@ -9,6 +9,10 @@ import type { SecurityLink } from './AuthPages'
 import { DevelopmentMessages, PlatformUsersPage, StudioUsersPage } from './StudioUsersPage'
 import { WritePermission } from './permissions'
 import { errorMessage } from './form'
+import { FinalStatementsPage } from './FinalStatementsPage'
+import { ResidentFinancePage } from './ResidentFinancePage'
+import { BudgetsPage } from './BudgetsPage'
+import { AllocationsPage } from './AllocationsPage'
 import { AccountingCorePage } from './AccountingCorePage'
 import './App.css'
 
@@ -53,12 +57,12 @@ function Workspace({ me, link, onClearLink, notice, refreshSession }: { me: Curr
   const [busy, setBusy] = useState(false)
   const condos = useResource<Condominium[]>(me.activeTenantId ? '/condominiums' : null)
   const current = condos.data?.find(x => x.id === selected)
-  const sections = ['Dashboard', ...(me.activeTenantId ? ['Condomini', 'Anagrafiche', 'Tabelle millesimali', 'Esercizi contabili', 'Contabilità'] : []),
+  const sections = ['Dashboard', ...(me.activeTenantId ? ['Condomini', 'Anagrafiche', 'Preventivi', 'Rate e incassi', 'Consuntivi', 'Ripartizioni', 'Tabelle millesimali', 'Esercizi contabili', 'Contabilità'] : []),
     ...(me.role === 'StudioAdmin' ? ['Utenti studio'] : []), ...(me.isPlatformAdmin ? ['Amministrazione'] : []), 'Account']
   return <WritePermission.Provider value={me.canWrite}><div className="shell"><aside>
     <a className="brand" href="#dashboard" onClick={() => setActive('Dashboard')}>CM <span>CondoManager</span></a><p className="nav-label">IL TUO SPAZIO</p>
     <nav aria-label="Navigazione principale">{sections.map(section => <button key={section} aria-current={active === section ? 'page' : undefined} onClick={() => setActive(section)}>{section}</button>)}</nav>
-    <p className="milestone">Accounting - Milestone 04</p>
+    <p className="milestone">Ripartizioni - Milestone 05</p>
   </aside><main><header><div><strong>{me.email}</strong><small>{me.activeTenantName ?? 'Nessuno studio selezionato'}</small></div><div className="actions">
     <Badge active={Boolean(me.role)}>{me.role ?? (me.isPlatformAdmin ? 'PlatformAdmin' : 'Account')}</Badge><button disabled={busy} onClick={async () => {
       setBusy(true); setError('')
@@ -81,10 +85,10 @@ function Workspace({ me, link, onClearLink, notice, refreshSession }: { me: Curr
           {!condos.data.length && <Empty>Lo studio e vuoto.</Empty>}</>}
         {active === 'Condomini' && <CondominiumsPage rows={condos.data} selected={selected} onSelect={setSelected} refresh={condos.reload} />}
         {active === 'Anagrafiche' && <PeoplePage />}
-        {['Tabelle millesimali', 'Esercizi contabili', 'Contabilità'].includes(active) && <>
+        {['Preventivi', 'Rate e incassi', 'Consuntivi', 'Ripartizioni', 'Tabelle millesimali', 'Esercizi contabili', 'Contabilità'].includes(active) && <>
           <label className="condo-selector">Condominio<select value={selected} onChange={e => setSelected(e.target.value)}><option value="">Seleziona un condominio…</option>{condos.data.map(c => <option key={c.id} value={c.id}>{c.code} · {c.name}{c.isActive ? '' : ' (inattivo)'}</option>)}</select></label>
           {!current ? <Empty>Seleziona un condominio per continuare.</Empty> : !current.isActive ? <Empty>Riattiva il condominio dalla sua anagrafica per gestire i dati collegati.</Empty> :
-            active === 'Contabilità' ? <AccountingCorePage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Tabelle millesimali' ? <AllocationPage key={current.id} condominiumId={current.id} /> : <PeriodsPage key={current.id} condominiumId={current.id} />}
+            active === 'Contabilità' ? <AccountingCorePage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Consuntivi' ? <FinalStatementsPage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Rate e incassi' ? <ResidentFinancePage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Preventivi' ? <BudgetsPage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Ripartizioni' ? <AllocationsPage key={current.id} condominiumId={current.id} isAdmin={me.role === 'StudioAdmin'} /> : active === 'Tabelle millesimali' ? <AllocationPage key={current.id} condominiumId={current.id} /> : <PeriodsPage key={current.id} condominiumId={current.id} />}
         </>}
       </>}</Status></>}
   </section></main></div></WritePermission.Provider>

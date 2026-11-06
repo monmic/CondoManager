@@ -5,7 +5,7 @@ using CondoManager.Domain;
 using Microsoft.EntityFrameworkCore;
 namespace CondoManager.Infrastructure;
 
-public sealed class AccountingService(AppDbContext db, ICurrentTenant current) : IAccountingService
+public sealed partial class AccountingService(AppDbContext db, ICurrentTenant current, AllocationService? finalResolver=null) : IAccountingService
 {
     private Guid TenantId => current.RequireRead();
     private async Task Condo(Guid id, CancellationToken ct)
@@ -142,7 +142,7 @@ public sealed class AccountingService(AppDbContext db, ICurrentTenant current) :
         var period=await Period(condo,input.AccountingPeriodId,input.Date,ct); var journal=new JournalEntry(TenantId,condo,period,input.Date,input.Description,input.Reference,input.RequestId,hash,JournalKind.Manual);
         foreach(var line in input.Lines) {
             var account=await LedgerAccount(condo,line.AccountId,ct);
-            if(account.Purpose is AccountPurpose.Payables or AccountPurpose.UnallocatedReceipts) throw new InvalidOperationException("Usare i flussi documenti, pagamenti o incassi per i conti di controllo.");
+            if(account.Purpose is AccountPurpose.Payables or AccountPurpose.UnallocatedReceipts or AccountPurpose.ResidentReceivables or AccountPurpose.BudgetContributions) throw new InvalidOperationException("Usare i flussi documenti, pagamenti o incassi per i conti di controllo.");
             if(account.Purpose == AccountPurpose.OpeningEquity) current.RequireAdmin();
             if(await db.FinancialAccounts.AnyAsync(x=>x.AccountId==account.Id && !x.IsActive,ct)) throw new InvalidOperationException("Conto finanziario inattivo.");
             journal.AddLine(account,line.Debit,line.Credit);
@@ -153,8 +153,10 @@ public sealed class AccountingService(AppDbContext db, ICurrentTenant current) :
         // Reversals require StudioAdmin: operational posting is also available to Collaborators.
         current.RequireAdmin(); var hash=Hash(new {Operation="Reversal",Id=id,Input=input}); var retry=await Retry(condo,input.RequestId,hash,ct); if(retry!=null) return await JournalDtoFor(retry,ct);
         var original=await db.JournalEntries.Include(x=>x.Lines).SingleOrDefaultAsync(x=>x.Id==id && x.CondominiumId==condo,ct) ?? throw new NotFoundException();
+        if(original.Kind is JournalKind.Assessment or JournalKind.ReceiptAttribution or JournalKind.FinalAdjustment or JournalKind.ResidentOpening || await db.ReceiptBankLinks.AnyAsync(l=>l.JournalEntryId==id,ct)) throw new InvalidOperationException("Usare le rettifiche del modulo rate/incassi; non stornare direttamente i movimenti collegati.");
         if(original.Kind is JournalKind.Reversal || await db.JournalEntries.AnyAsync(x=>x.ReversesEntryId==id,ct)) throw new InvalidOperationException("Scrittura non stornabile o gia stornata.");
         if(input.Date<original.Date) throw new ArgumentException("Storno precedente alla registrazione.");
+        if(original.Kind==JournalKind.Expense && await db.AdministrativeClosures.AnyAsync(c=>c.CondominiumId==condo && c.AccountingPeriodId==original.AccountingPeriodId,ct)) throw new InvalidOperationException("Costo di un esercizio chiuso: rettifica amministrativa successiva non automatizzata.");
         if(original.Kind==JournalKind.Expense && original.ExpenseDocumentId.HasValue)
         {
             var doc=await Expense(condo,original.ExpenseDocumentId.Value,ct); var detail=await ExpenseDtoFor(doc,ct); if(detail.PaidAmount!=0) throw new InvalidOperationException("Stornare prima i pagamenti."); doc.Cancel();

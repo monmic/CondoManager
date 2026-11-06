@@ -77,12 +77,12 @@ public class AccountingApiTests
         var tenant=await SeedTenant();await using var host=new SecurityTestHost(tenant);using var c=await host.CreateAuthenticatedClient();var condo=await Condo(c);var p=await Period(c,condo.Id);var s=await Supplier(c);var bank=await Bank(c,condo.Id,p.Id);var e=await Expense(c,condo.Id,p.Id,s.Id);var original=await Register(c,condo.Id,e.Id);var path=Base(condo.Id);
         var payment=await Send<JournalDto>(c,path+$"/expenses/{e.Id}/payments",new PaymentInput(Guid.NewGuid(),p.Id,bank.Id,new(2026,8,2),22,null));
         Assert.Equal(HttpStatusCode.Conflict,await Status(c,path+$"/journals/{original.Id}/reverse",new ReversalInput(Guid.NewGuid(),p.Id,new(2026,8,3),"Synthetic correction")));
-        await Send<AccountingPeriodDto>(c,$"/api/condominiums/{condo.Id}/accounting-periods/{p.Id}/close",new{});
+        await AdministrativeTestFixture.Close(c,condo.Id,p.Id);
         Assert.Equal(HttpStatusCode.Conflict,await Status(c,path+$"/journals/{payment.Id}/reverse",new ReversalInput(Guid.NewGuid(),p.Id,new(2026,8,3),"Closed")));
         var p2=await Period(c,condo.Id,2027);var key=Guid.NewGuid();var reversal=await Send<JournalDto>(c,path+$"/journals/{payment.Id}/reverse",new ReversalInput(key,p2.Id,new(2027,1,2),"Synthetic payment reversal"));Assert.Equal(payment.Id,reversal.ReversesEntryId);
         Assert.Equal(0,(await Get<ExpenseDto[]>(c,path+"/expenses")).Single().PaidAmount);
-        await Send<JournalDto>(c,path+$"/journals/{original.Id}/reverse",new ReversalInput(Guid.NewGuid(),p2.Id,new(2027,1,2),"Synthetic invoice reversal"));
-        Assert.Equal(ExpenseStatus.Cancelled,(await Get<ExpenseDto[]>(c,path+"/expenses")).Single().Status);Assert.Equal(5,(await Get<JournalDto[]>(c,path+"/journals")).Length);
+        Assert.Equal(HttpStatusCode.Conflict,await Status(c,path+$"/journals/{original.Id}/reverse",new ReversalInput(Guid.NewGuid(),p2.Id,new(2027,1,2),"Closed cost cannot change")));
+        Assert.Equal(ExpenseStatus.Registered,(await Get<ExpenseDto[]>(c,path+"/expenses")).Single().Status);Assert.Equal(5,(await Get<JournalDto[]>(c,path+"/journals")).Length);
         Assert.Equal(500,(await Get<FinancialAccountDto[]>(c,path+"/financial-accounts")).Single().Balance);
         Assert.Equal(HttpStatusCode.Conflict,await Status(c,path+$"/journals/{payment.Id}/reverse",new ReversalInput(Guid.NewGuid(),p2.Id,new(2027,1,3),"Duplicate reversal")));
         await using var db=Db(tenant);await Assert.ThrowsAsync<PostgresException>(()=>db.Database.ExecuteSqlInterpolatedAsync($"UPDATE \"JournalEntries\" SET \"Description\"={"Tampered"} WHERE \"Id\"={original.Id}"));
@@ -132,9 +132,9 @@ public class AccountingApiTests
         await using(var db=Db(tenant)) {
             await Assert.ThrowsAsync<PostgresException>(()=>db.Database.ExecuteSqlInterpolatedAsync($"INSERT INTO \"JournalEntryLines\" (\"Id\",\"TenantId\",\"CondominiumId\",\"JournalEntryId\",\"AccountId\",\"Debit\",\"Credit\",\"CreatedAt\",\"UpdatedAt\") VALUES ({Guid.NewGuid()},{tenant},{condo.Id},{journal.Id},{chart[0].Id},1,0,now(),now())"));
         }
-        await Send<AccountingPeriodDto>(c,$"/api/condominiums/{condo.Id}/accounting-periods/{period.Id}/close",new{});
+        Assert.Equal(HttpStatusCode.Conflict,await Status(c,$"/api/condominiums/{condo.Id}/accounting-periods/{period.Id}/close",new{})); // Unclassified manual cost must not bypass administrative closure.
         Assert.Equal(journal.Id,(await Send<JournalDto>(c,path+"/journals",input)).Id);
-        Assert.Equal(HttpStatusCode.Conflict,await Status(c,path+"/journals",input with {RequestId=Guid.NewGuid()}));
+        Assert.Equal(HttpStatusCode.Conflict,await Status(c,path+"/journals",input with {RequestId=Guid.NewGuid(),Date=new(2027,1,1)})); // Date outside the open exercise; closed-period retry coverage is in M06.3.
     }
     [PostgresFact] public async Task DirectApplicationServiceCreatesOpeningAtomically()
     {
@@ -160,9 +160,9 @@ public class AccountingApiTests
         var payment=new PaymentInput(Guid.NewGuid(),p.Id,bank.Id,new(2026,8,2),122,"Synthetic full payment");
         var original=await Send<JournalDto>(c,path+$"/expenses/{e.Id}/payments",payment);
         Assert.Equal(ExpenseStatus.Paid,(await Get<ExpenseDto[]>(c,path+"/expenses")).Single().Status);
-        await Send<AccountingPeriodDto>(c,$"/api/condominiums/{condo.Id}/accounting-periods/{p.Id}/close",new{});
+        await AdministrativeTestFixture.Close(c,condo.Id,p.Id);
         Assert.Equal(original.Id,(await Send<JournalDto>(c,path+$"/expenses/{e.Id}/payments",payment)).Id);
-        Assert.Equal(3,(await Get<JournalDto[]>(c,path+"/journals")).Length);
+        Assert.Equal(3,(await Get<JournalDto[]>(c,path+"/journals")).Count(j=>j.Kind!=JournalKind.FinalAdjustment));
     }
     [PostgresFact] public async Task DuplicateFinancialAccountRollsBackAccountJournalAndAudit()
     {

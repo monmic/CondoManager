@@ -39,6 +39,10 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
         base.OnModelCreating(m);
         ConfigureIdentity(m);
         ConfigureAccounting(m);
+        ConfigureAllocations(m);
+        ConfigureBudgets(m);
+        ConfigureResidentFinance(m);
+        ConfigureFinalStatements(m);
         m.Entity<Tenant>(b => {
             b.HasKey(x => x.Id); b.HasIndex(x => x.Code).IsUnique();
             b.HasQueryFilter(x => CurrentTenantId != null && x.Id == CurrentTenantId);
@@ -110,7 +114,7 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
         m.Entity<Person>().HasIndex(x => new { x.TenantId, x.TaxCode }).IsUnique();
         foreach (var entity in m.Model.GetEntityTypes().Where(e => typeof(Entity).IsAssignableFrom(e.ClrType)))
         {
-            foreach (var property in entity.GetProperties().Where(p => p.ClrType == typeof(string))) property.SetMaxLength(160);
+            foreach (var property in entity.GetProperties().Where(p => p.ClrType == typeof(string) && p.GetColumnType() != "jsonb")) property.SetMaxLength(160);
             foreach (var property in entity.GetProperties().Where(p => p.Name == "Notes")) property.SetMaxLength(4000);
             foreach (var property in entity.GetProperties().Where(p => p.Name == "CadastralData")) property.SetMaxLength(2000);
             foreach (var property in entity.GetProperties().Where(p => p.Name == "MailingAddress")) property.SetMaxLength(500);
@@ -170,6 +174,7 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
                 throw new InvalidOperationException("Esercizio chiuso immutabile.");
             if (entry.Entity is JournalEntry or JournalEntryLine or ExpensePayment && entry.State != EntityState.Added)
                 throw new InvalidOperationException("Scrittura contabilizzata immutabile: usare uno storno.");
+            if (entry.Entity is SettlementPosition or ResidentOpening or OpeningPosition or AdministrativeClosure or PlanSchedule or InstallmentDebtor or Installment or ResidentReceipt or ReceiptAllocation or AllocationRun or AllocationRunSource or AllocationRunLine or ConsumptionReading && entry.State != EntityState.Added) throw new InvalidOperationException("Storico del riparto o lettura immutabile: creare una rettifica.");
             if (entry.Entity is Tenant) throw new InvalidOperationException("Provisioning tenant non disponibile.");
             if (entry.Entity is TenantEntity row)
             {

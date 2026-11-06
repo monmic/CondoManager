@@ -26,7 +26,7 @@ public sealed partial class AppDbContext
             b.HasIndex(x => new { x.TenantId,x.CondominiumId,x.Code }).IsUnique();
             b.HasIndex(x => new { x.TenantId,x.CondominiumId,x.Purpose }).IsUnique().HasFilter("\"Purpose\" <> 0");
             b.HasOne<Account>().WithMany().HasForeignKey(x => new {x.TenantId,x.CondominiumId,x.ParentAccountId}).HasPrincipalKey(x => new {x.TenantId,x.CondominiumId,x.Id});
-            b.ToTable("Accounts", t => t.HasCheckConstraint("CK_Account_Type", "\"Type\" BETWEEN 0 AND 4 AND \"Purpose\" BETWEEN 0 AND 3"));
+            b.ToTable("Accounts", t => t.HasCheckConstraint("CK_Account_Type", "\"Type\" BETWEEN 0 AND 4 AND \"Purpose\" BETWEEN 0 AND 5"));
         });
         m.Entity<Supplier>().HasIndex(x => new {x.TenantId,x.Name});
         m.Entity<ExpenseDocument>(b => {
@@ -54,7 +54,7 @@ public sealed partial class AppDbContext
             b.HasIndex(x => new {x.TenantId,x.CondominiumId,x.AccountingPeriodId,x.Date});
             b.HasMany(x => x.Lines).WithOne().HasForeignKey(x => new {x.TenantId,x.CondominiumId,x.JournalEntryId}).HasPrincipalKey(x => new {x.TenantId,x.CondominiumId,x.Id});
             b.Navigation(x => x.Lines).HasField("_lines").UsePropertyAccessMode(PropertyAccessMode.Field);
-            b.ToTable("JournalEntries", t => t.HasCheckConstraint("CK_Journal_Posted", "\"IsPosted\" AND \"Kind\" BETWEEN 0 AND 5 AND ((\"Kind\" = 5) = (\"ReversesEntryId\" IS NOT NULL))"));
+            b.ToTable("JournalEntries", t => t.HasCheckConstraint("CK_Journal_Posted", "\"IsPosted\" AND \"Kind\" BETWEEN 0 AND 9 AND ((\"Kind\" = 5) = (\"ReversesEntryId\" IS NOT NULL))"));
         });
         m.Entity<JournalEntryLine>(b => {
             b.HasOne<Account>().WithMany().HasForeignKey(x => new {x.TenantId,x.CondominiumId,x.AccountId}).HasPrincipalKey(x => new {x.TenantId,x.CondominiumId,x.Id});

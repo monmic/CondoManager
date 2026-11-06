@@ -1,7 +1,7 @@
-# CondoManager — Milestone 04
+# CondoManager — M06.3: consuntivi, conguagli e chiusura
 Modular monolith net8.0, ASP.NET Core Identity, EF Core/Npgsql 8, PostgreSQL 16,
 React/TypeScript/Vite. Supporta account condivisi tra piu studi tramite membership.
-Anagrafiche e Identity rimangono operative; M04 aggiunge contabilita a partita doppia, documenti, pagamenti e saldi.
+Anagrafiche, Identity e contabilita M04 rimangono operative. M05 aggiunge regole, consumi, simulazione e conferma dei riparti con snapshot immutabili.
 
 ## Prerequisiti Windows
 Windows PowerShell 5.1 o PowerShell 7, SDK con supporto .slnx (9.0.200+;
@@ -259,5 +259,198 @@ riceve una nuova chiave. Riferimenti bancari liberi non sono chiavi univoche.
 
 Limiti: liste/registro non paginati, nessun riporto automatico, liquidazione IVA,
 riconciliazione bancaria, OCR o allegati. Nessun riparto, conguaglio o rata.
-Prossima milestone proposta: collegamento categorie/tabelle, riparti decimal,
-criteri di arrotondamento e conguagli con versioni approvate; M05 non iniziata.
+
+## Ripartizioni — Milestone 05
+Migrazione **20261106103327_ExpenseAllocationMilestone05**: nove nuove tabelle e
+vincoli/trigger additivi. Nessun reset, dato ricreato o modifica ai movimenti M04.
+Le configurazioni ambiente/HTTPS e l'account del bootstrap restano quelli sopra.
+~~~powershell
+docker compose up -d --wait
+dotnet ef database update --project src/backend/CondoManager.Infrastructure
+Push-Location src/frontend/web
+npm install
+npm run build
+Pop-Location
+$env:ASPNETCORE_ENVIRONMENT = 'Development'
+dotnet run --project src/backend/CondoManager.Api --no-launch-profile --urls https://localhost:7262
+~~~
+Aprire https://localhost:7262, accedere, scegliere Ripartizioni e il condominio.
+
+### Verifica del motore dall'interfaccia
+Usare esclusivamente dati sintetici in un condominio di prova:
+1. Creare unita A, B, C ed esercizio Open 2026-01-01 / 2026-12-31.
+2. In Tabelle millesimali creare una tabella con decorrenza 2026-01-01, nominale
+   1000 e quote A=500, B=300, C=200; attivarla.
+3. In Contabilita creare e registrare un documento di 1000 EUR, IVA zero, nello
+   stesso esercizio. Il residuo da pagare non limita il costo da ripartire.
+4. In Ripartizioni selezionare l'esercizio. Gruppi > Nuovo gruppo permette, per
+   esempio, A e B: non serve che il gruppo coincida con una scala.
+5. Regole > Nuova regola, tipo Parti uguali, peso 100%; salvare e attivare.
+6. Regole > Nuova regola, tipo Mista: componente 1 Millesimi 30%, tabella attiva;
+   componente 2 Consumi 70%, codice COLDWATER e misura M3. Salvare e attivare.
+   Percentuali, tabelle, gruppi ed eventuale normalizzazione sono configurabili.
+7. Consumi > Nuova lettura: per ogni unita inserire iniziale 100 al 2026-01-01;
+   finali al 2026-12-31 A=110, B=120, C=140. Codice contatore distinto per unita.
+   Verificare consumi 10/20/40. Mancanti, stime e rettifiche sono evidenziati.
+8. Simulazione > Aggiungi quota di spesa: scegliere il documento, importo 100 e
+   Parti uguali. Simulare: 33,34 / 33,33 / 33,33, differenza zero. Non confermare.
+9. Nella stessa quota scegliere importo 1000 e regola Mista: simulare e verificare
+   A=250,00 / B=290,00 / C=460,00. Espandere il dettaglio dei centesimi/denominatori.
+10. Confermare dopo aver letto l'anteprima: lo storico conserva quote, autore,
+    data, versione motore, regola, gruppi, tabelle e letture usate. Ricaricare la
+    pagina e aprire Storico ripartizioni > Dettaglio riparto: risultati persistiti.
+11. StudioAdmin puo preparare una sostituzione esplicita dall'ultima versione,
+    risimulare e confermare. Stessi documenti/totali, nuovo UUID e versione +1;
+    l'originale resta consultabile e non consuma due volte il budget.
+
+Regole > Associa regola configura default di categoria e deroga sul documento.
+La scelta sulla singola quota ha precedenza su entrambi. Si possono creare piu
+quote dello stesso documento con criteri diversi; il totale non puo superare il
+lordo ancora da ripartire. Le modifiche alle regole non riscrivono la contabilita.
+
+Per gruppi/esclusioni millesimali con totale ammesso diverso dal nominale,
+NormalizeAdmitted deve essere esplicito nel componente, prima dell'attivazione:
+nessuna normalizzazione silenziosa. Gli addebiti diretti indicano unita/importi
+e opzionalmente soggetto, con associazione storica valida per l'intera competenza.
+Non viene scelto automaticamente il proprietario attuale.
+
+Le letture sono append-only: Rettifica lettura richiede motivo e conserva la
+precedente. Sostituzioni di contatore: codici distinti, finale del vecchio e
+iniziale del nuovo nella stessa data. Nessuna stima automatica o consumo inventato.
+
+Preview non scrive dati. Conferma ricarica le fonti e ne confronta l'impronta;
+fonti cambiate richiedono una nuova simulazione. RequestId impedisce conferme
+ripetute; stessa richiesta puo recuperare il risultato anche dopo la chiusura.
+Viewer legge e simula, ruoli operativi configurano/confermano, sostituzioni solo
+StudioAdmin. Cookie, CSRF, membership e isolamento M03 rimangono obbligatori.
+Nessuna nuova credenziale o dipendenza esterna introdotta.
+
+Verifica completa su PostgreSQL temporaneo e browser:
+~~~powershell
+.\scripts\Verify-Postgres.ps1 -Browser
+~~~
+Il database di lavoro non viene usato dall'harness; vengono rimosse solo le sue
+risorse Compose temporanee. Per backend senza browser omettere -Browser.
+
+[Modello e formule](docs/architecture/milestone-05-allocations.md),
+[ADR arrotondamenti/snapshot](docs/decisions/0005-deterministic-allocations.md),
+[glossario riparti](docs/domain/allocation-glossary.md),
+[esito verifiche M05](docs/architecture/milestone-05-verification.md).
+
+Limiti: nessun prorata temporale o algoritmo normativo automatico; una coppia
+iniziale/finale corrente per contatore/tipo/esercizio, senza interpolazione.
+Le fonti devono coprire l'intera competenza in un esercizio aperto. Liste non
+paginate; limiti di dimensione espliciti nel modello. Nessun credito, rata,
+preventivo, consuntivo o conguaglio generato da M05.
+Proposta storica successiva a M05: preventivi/consuntivi, piano rate e rilevazione dei crediti
+sulla base di riparti approvati e fonti ancora valide. Per lo stato corrente vedere M06.1 e M06.2 sotto.
+Se una fonte viene annullata in contabilita dopo la conferma, lo storico la
+segnala senza cambiare le quote originarie. Nessun credito o rata viene generato.
+
+## Milestone 06.1 — incremento preventivi (riepilogo storico)
+Preventivi versionati, proposte, simulazione e approvazione amministrativa con
+snapshot M05, audit, autorizzazione e protezione PostgreSQL. Nuova sezione Preventivi.
+Sono presenti inoltre calcolatori puri e testati per rate individuali e conguagli,
+Il collegamento persistente di rate, crediti e incassi è aggiunto nella M06.2 sotto; consuntivi e chiusura restano M06.3.
+Non usare il preventivo approvato come rilevazione di un credito.
+
+Migration additiva: `20261106112924_AdministrativeCycleMilestone06`.
+Applicazione manuale con `dotnet ef database update --project src/backend/CondoManager.Infrastructure`;
+mai automatica all'avvio. Non eseguire reset del database di lavoro.
+
+Procedura UI, API e limiti: [incremento M06](docs/architecture/milestone-06-administration.md).
+Verifica isolata completa: `.\scripts\Verify-Postgres.ps1 -Browser`.
+Per un controllo mirato: `-TestFilter 'FullyQualifiedName~BudgetApiTests'`.
+Il filtro limita i test e non equivale alla verifica completa della milestone.
+
+## M06.2 — Rate, crediti e incassi
+Piani persistenti da preventivi approvati, debitori espliciti, emissione contabile,
+incassi/attribuzioni, riconciliazione manuale e saldi individuali. Nessun saldo
+aggiornabile manualmente e nessun movimento bancario duplicato in riconciliazione.
+
+Migration: **20261106134439_InstallmentsReceiptsMilestone062**. Aggiunge sette tabelle,
+vincoli/indici/trigger e amplia i check dei tipi contabili senza modificare le righe
+preesistenti. Verificata solo sul database Docker temporaneo; nessuna applicazione
+al database di lavoro da parte dell'agente. Per l'installazione l'operatore applica
+esplicitamente le migration con la procedura già descritta, senza reset.
+
+Avvio con ambiente e connection string già configurati:
+~~~powershell
+docker compose up -d --wait
+# L'operatore applica esplicitamente le migration quando decide di aggiornare:
+# dotnet ef database update --project src/backend/CondoManager.Infrastructure
+npm run build --prefix src/frontend/web
+$env:ASPNETCORE_ENVIRONMENT = 'Development'
+dotnet run --project src/backend/CondoManager.Api --no-launch-profile --urls https://localhost:7262
+~~~
+
+### Ciclo verificabile dalla UI
+1. Preparare condominio, unità, persone con associazioni storiche ed esercizio Open.
+2. In Preventivi creare/proporre/simulare/approvare il preventivo M06.1.
+3. In **Rate e incassi > Piani rateali** creare il piano: preventivo corrente,
+   data delle designazioni, scadenze ordinate e debitori espliciti (quote totali 1
+   per unità). Scegliere rate uguali, percentuali o importi per scadenza.
+4. Simulare, verificare quote e salvare Draft. Nessun credito è ancora emesso.
+5. StudioAdmin: scegliere data di emissione ed **Approva ed emetti crediti**.
+   In Rate e crediti verificare importi, scadenze, debitore originario e residui.
+6. Incassi > Nuovo incasso: scegliere conto, esercizio/data, importo, eventuale
+   debitore e pagante distinto. Senza RecordOnly viene creato un solo movimento.
+7. Nel dettaglio indicare importi su una o più rate e confermare l'attribuzione.
+   Esempio: rata 500, incasso/attribuzione 200 → pagato 200, residuo 300.
+8. Per un incasso generico M04 già presente: registrare lo stesso importo/data/conto
+   con **Da riconciliare con movimento esistente**; Riconciliazione > selezionare
+   il movimento > Associa > Conferma riconciliazione. La banca non aumenta di nuovo.
+9. Saldi mostra posizioni unità/debitore, riepiloghi separati, scaduto e fondi non
+   attribuiti. Gli incassi non identificati restano distinti dai debiti individuali.
+10. StudioAdmin può stornare un gruppo di attribuzioni con data/motivo e poi
+    attribuire nuovamente, conservando scritture e dettagli originali.
+
+Una nuova versione del piano mostra differenze; se esistono crediti già emessi,
+l'emissione successiva è bloccata con messaggio esplicito. Non si modificano rate
+pagate né si compensano automaticamente soggetti. I collegamenti bancari errati
+non possono essere riassegnati silenziosamente. Riconciliazione solo esatta uno a uno.
+
+[Modello e regole M06.2](docs/architecture/milestone-062-finance.md),
+[convenzione contabile](docs/decisions/0007-resident-receivables.md),
+[glossario](docs/domain/resident-finance-glossary.md).
+Limite storico M06.2: consuntivi/conguagli/chiusura sono ora disponibili nella M06.3 descritta sotto; M07 non implementata.
+
+Esiti effettivi: [rapporto M06.2](docs/architecture/milestone-062-verification.md).
+## M06.3 — Consuntivi e chiusura amministrativa
+
+Consuntivi versionati, confronto con il preventivo approvato, conguagli individuali,
+aperture verificate e riporti idempotenti sono integrati nel giornale M04.
+Le sezioni M06.1/M06.2 precedenti riportano anche i limiti storici di quegli incrementi;
+lo stato attuale è descritto nel [modello M06.3](docs/architecture/milestone-063-final-statements.md).
+
+La migration aggiunta è `20261106145113_FinalStatementsMilestone063`.
+Non viene applicata automaticamente al database di lavoro. Il comando
+`./scripts/Verify-Postgres.ps1 -Browser` verifica tutte le migration e i flussi
+su un progetto Docker isolato, rimosso al termine. Richiede Docker Desktop e Edge.
+
+Per verificare il ciclo dall'interfaccia, avviare database, bootstrap, API HTTPS e
+frontend con i comandi di avvio documentati sopra, quindi:
+
+1. Creare un esercizio aperto, unità e associazioni storiche dei soggetti.
+2. Approvare un preventivo con riparto, emettere il piano rateale e attribuire gli incassi.
+3. Registrare le spese effettive e confermare le relative ripartizioni nella sezione Ripartizioni.
+4. In **Consuntivi → Saldi iniziali**, attestare esplicitamente zero, importare un saldo
+   documentato oppure riportare la chiusura precedente. Nessun saldo assente è assunto zero.
+5. Simulare il consuntivo, controllare fonti e anomalie, conservare la bozza, proporla
+   e approvarla come StudioAdmin. Il confronto espone anche categorie presenti in un solo bilancio.
+6. In **Conguagli**, eseguire anteprima, conferma e contabilizzazione. La scrittura
+   registra solo la differenza rispetto ai crediti già emessi.
+7. In **Chiusura esercizio**, aggiornare la checklist e confermare la chiusura autorizzata.
+   Gli insoluti correttamente riconciliati restano crediti e non bloccano la chiusura.
+
+Esempio sintetico verificato: preventivo 1.000 €, consuntivo 1.100 €, quote A/B/C
+500/300/200 e 550/330/220 €. Conguagli +50/+30/+20 €. Con 400 € attribuiti ad A,
+il saldo di A è 150 €; il saldo complessivo è 700 €. La nuova scrittura è di 100 €,
+senza emettere di nuovo i 1.000 €. Un saldo negativo indica credito del soggetto.
+
+Per le rettifiche non definite si applica un blocco esplicito: niente riaperture,
+trasferimenti automatici a nuovi proprietari o riscritture dei documenti chiusi.
+Le nuove differenze finali non generano automaticamente un secondo piano di riscossione.
+Vedere [formule e limiti](docs/architecture/milestone-063-final-statements.md),
+[ADR](docs/decisions/0008-final-statements-and-carry.md) e
+[verifiche](docs/architecture/milestone-063-verification.md).

@@ -95,7 +95,7 @@ export function PeriodsPage({ condominiumId }: { condominiumId: string }) {
     <Status resource={resource}>{!resource.data?.length ? <Empty /> : <DataTable headings={['Codice / denominazione', 'Inizio', 'Fine inclusa', 'Stato', 'Data chiusura', 'Azioni']}>{resource.data.map(row =>
       <tr key={row.id}><td>{row.code} · {row.name}</td><td>{row.startsOn}</td><td>{row.endsOn}</td><td><Badge active={row.status === 'Open'}>{row.status}</Badge></td><td>{row.closedAt ? new Date(row.closedAt).toLocaleString('it-IT') : '—'}</td><td className="actions">
         {row.status === 'Draft' && <><WriteButton onClick={() => setEdit(row)}>Modifica esercizio</WriteButton><WriteButton disabled={busy} onClick={() => void transition(row, false)}>Apri esercizio</WriteButton></>}
-        {row.status === 'Open' && <WriteButton disabled={busy} onClick={() => void transition(row, true)}>Chiudi definitivamente</WriteButton>}
+        {row.status === 'Open' && <small>Chiusura controllata dalla sezione Consuntivi.</small>}
         {row.status === 'Closed' && <span className="muted">Sola lettura</span>}
       </td></tr>)}</DataTable>}</Status>
   </>

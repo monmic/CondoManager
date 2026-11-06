@@ -1,4 +1,4 @@
-# API — Milestone 04
+# API — Milestone 05
 Tutte le API richiedono HTTPS. Cookie Identity, nessun bearer token.
 GET /health pubblico: solo vitalita del processo.
 La SPA compilata e gli asset sono intenzionalmente pubblici, senza dati tenant.
@@ -114,3 +114,104 @@ Chiave riusata con contenuto diverso: 409. Solo salvataggi bozza/configurazione
 sono modificabili: nessuna PUT/DELETE per giornale o pagamenti contabilizzati.
 Una fattura registrata si annulla stornandone la scrittura dopo i pagamenti.
 Le liste forniscono i DTO di dettaglio, righe e storico inclusi; non espongono EF.
+
+## API ripartizioni M05
+Prefisso /api/allocations/condominiums/{c}. Tenant server-side, cookie HTTPS,
+CSRF su tutte le mutazioni, incluso POST preview. X-Expected-Tenant supportato.
+GET e preview per tutti i membri attivi; altre operazioni per ruoli operativi;
+conferma sostitutiva con previousRunId soltanto StudioAdmin.
+
+| Route relativa | Operazioni |
+| --- | --- |
+| /rules | GET elenco/versioni/componenti; POST bozza |
+| /rules/{id} | PUT bozza, o nuova versione se la regola e attiva |
+| /rules/{id}/activate | POST attivazione dopo validazione |
+| /groups | GET gruppi/membri; POST gruppo |
+| /groups/{id} | PUT nome/stato/membri espliciti |
+| /readings | GET storico, filtro period; POST lettura o rettifica append-only |
+| /consumptions | GET con period/type/unitOfMeasure/from/to, risultati e anomalie per unita |
+| /assignments | GET; PUT associazione accountId oppure expenseDocumentId e ruleId |
+| /preview | POST input di calcolo, nessun salvataggio |
+| /confirm | POST requestId/previewHash/input, risultato persistito/idempotente |
+| /runs | GET storico, filtro period facoltativo |
+| /runs/{id} | GET dettaglio, snapshot e quote congelate |
+
+AllocationPreviewInput: accountingPeriodId, competenceFrom, competenceTo,
+sources[] (expenseDocumentId, amount, ruleId opzionale, excludedUnitIds,
+directCharges[] con propertyUnitId/personId opzionale/amount), previousRunId
+opzionale solo per sostituzione. Tutti gli importi devono essere positivi e
+rispettare il budget residuo dei documenti. Nessun TenantId ricevuto e autorita.
+
+Preview restituisce previewHash, snapshot risolto e result con importo originale,
+quote, rettifiche componenti/unita, totale ripartito, differenza, warnings/errors.
+Errori di contesto/fonti mancanti sono ProblemDetails espliciti; anomalie del
+calcolo ritornano result non valido e non confermabile. Fonti cambiate, esercizio
+chiuso, budget esaurito o requestId incompatibile: 409. Relazioni fuori ambito: 404.
+Formato/percentuali/importi non validi: 400. Autorizzazione: 401/403.
+
+Le conferme rispondono AllocationRunDto; stesso RequestId/contenuto restituisce
+lo stesso UUID. Nessuna PUT/DELETE per run, righe o letture. Il risultato storico
+e letto dallo snapshot, mai ricalcolato. Decimal in uscita stringhe invarianti;
+input numerico o stringa, come le API precedenti. Snapshot/evidence interni
+preservano i numeri come stringhe per evitare perdite di precisione nei client.
+Vedere AllocationContracts.cs e [modello M05](milestone-05-allocations.md).
+
+AllocationRunDto.sourceWarnings segnala fonti annullate in contabilita dopo la
+conferma, senza alterare il risultato congelato. Non e un calcolo di crediti.
+
+## Preventivi — incremento M06
+Tutte le route `/api/budgets/condominiums/{condo}` richiedono TenantMember.
+GET elenca le versioni (filtro period facoltativo); POST crea una bozza;
+PUT /{id} modifica solo Draft; POST /{id}/propose congela la proposta;
+POST /{id}/preview simula senza persistenza; POST /{id}/approve richiede
+StudioAdmin e il previewHash corrente. Si applicano cookie, CSRF e
+X-Expected-Tenant. Il DTO di lettura include voci, totale precedente/differenza,
+approvazione e quote congelate. Nessun endpoint di questo incremento genera
+crediti, rate persistenti o movimenti contabili.
+
+## Rate e incassi — M06.2
+Prefisso `/api/resident-finance/condominiums/{condo}`. TenantMember obbligatorio,
+CSRF per POST e supporto X-Expected-Tenant. TenantId non è un campo dei DTO.
+
+| Metodo | Percorso | Operazione |
+| --- | --- | --- |
+| POST | /plans/preview | Simulazione pura, anche Viewer |
+| POST | /plans | Bozza persistente, ruoli operativi |
+| GET | /plans?period=UUID | Versioni e snapshot |
+| POST | /plans/{id}/approve | Emissione con PlanApproval, solo StudioAdmin |
+| GET | /credits?period=UUID&asOf=YYYY-MM-DD | Rate emesse e residui; asOf solo scadenziario |
+| POST | /receipts | ResidentReceiptInput, creazione o acquisizione movimento |
+| GET | /receipts?period=UUID | Incassi e attribuzioni, incluso non attribuito |
+| POST | /receipts/{id}/allocate | Attribuzione atomica con chiave di idempotenza |
+| POST | /allocations/{journalId}/reverse | Storno intero gruppo, solo StudioAdmin |
+| GET | /bank-movements | Incassi generici M04 disponibili |
+| POST | /receipts/{id}/match | Prenotazione movimento esatto |
+| POST | /receipts/{id}/reconcile | Conferma associazione |
+| GET | /balances?period=UUID&asOf=YYYY-MM-DD | Posizioni unità/debitore e fondi non attribuiti |
+
+GET richiede almeno Viewer; mutazioni salvo approvazione/storno richiedono
+Collaborator o StudioAdmin. Le operazioni con date contabili richiedono esercizio
+Open. Chiavi UUID obbligatorie per generazione, emissione, incasso, attribuzione e
+storno; una chiave riutilizzata con parametri diversi restituisce 409.
+## Consuntivi M06.3
+
+Base: `/api/final-statements/condominiums/{condo}`. Tenant validato lato server,
+autenticazione e CSRF sulle mutazioni; nessun TenantId in input.
+
+| Metodo | Suffisso | Operazione |
+|---|---|---|
+| GET / POST | `/` | Versioni per esercizio / conservazione bozza |
+| POST | `/preview` | Simulazione senza persistenza |
+| POST | `/{id}/propose`, `/{id}/approve` | Workflow con fingerprint |
+| POST | `/{id}/settlement-preview`, `/{id}/settlement-confirm` | Anteprima e snapshot conguagli |
+| GET | `/settlements` | Storico contabilizzazioni |
+| POST | `/settlements/{id}/post`, `/settlements/{id}/reverse` | Registrazione / storno controllato |
+| GET / POST | `/periods/{period}/opening` | Consultazione / attestazione apertura |
+| GET | `/periods/{period}/review` | Checklist e saldi correnti |
+| POST | `/periods/{period}/close` | Chiusura con fingerprint |
+| GET | `/closures` | Storico chiusure immutabili |
+
+Viewer consulta e simula; Collaborator prepara e propone; StudioAdmin approva,
+gestisce aperture, conferma/contabilizza/storna e chiude. Le letture di dettaglio,
+confronto e fonti sono incluse nei DTO degli snapshot. RequestId UUID e fingerprint
+proteggono retry e fonti modificate; gli errori di stato restituiscono 409.
